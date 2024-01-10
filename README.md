@@ -1,4 +1,3 @@
 # BabylonJS
 To read more about BabylonJS
-
-https://doc.babylonjs.com/journey/learningTheDocs
+<a href="https://doc.babylonjs.com/journey/learningTheDocs" target="_blank">learningTheDocs</a>
