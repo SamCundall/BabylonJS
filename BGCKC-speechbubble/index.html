@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
+        <script src="https://cdn.babylonjs.com/recast.js"></script>
+        <script src="https://cdn.babylonjs.com/ammo.js"></script>
+        <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+        <script src="https://cdn.babylonjs.com/cannon.js"></script>
+        <script src="https://cdn.babylonjs.com/Oimo.js"></script>
+        <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
+        <script src="https://cdn.babylonjs.com/babylon.js"></script>
+        <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+        <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+            
+            #canvasZone {
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+<body>
+    <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var startRenderLoop = function (engine, canvas) {
+            engine.runRenderLoop(function () {
+                if (sceneToRender && sceneToRender.activeCamera) {
+                    sceneToRender.render();
+                }
+            });
+        }
+
+        var engine = null;
+        var scene = null;
+        var sceneToRender = null;
+        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+        var createScene = function () {
+
+    //Variables
+    var scene;
+    var sceneToRender;
+    var font_size = 48; //default
+    var tmpctx;
+    var DTWidth;
+    var temp;
+    var tmpctx;
+    var polygonWidth;
+    var polygon;
+    var mat;
+    var matRh;
+    var matRj;
+    var dynamicTexture;
+    var ratio;
+    var DTHeight;
+    var polygonHeight;
+    var font;
+    var polygon;
+    var shape = [];
+    var text = " " + "hello" + " ";
+    var depth; //with 0 radius
+    var radius;
+    var dTheta;
+
+
+
+
+    //Scene
+    var scene = new BABYLON.Scene(engine);
+    scene.clearColor = new BABYLON.Color3(0.678, 0.847, 0.902);
+
+    //Camera
+    var camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 2, 2, new BABYLON.Vector3(0, 0, -30), scene);
+    camera.setTarget(BABYLON.Vector3.Zero());
+    camera.attachControl(canvas, true);
+
+
+
+    function createSpeechBubble() {
+
+        //Use a temporay dynamic texture to calculate the length of the text on the dynamic texture canvas
+        temp = new BABYLON.DynamicTexture("DynamicTexture", 64, scene);
+        tmpctx = temp.getContext();
+
+        tmpctx.font = "bold " + getFontSize() + "px Arial";
+        tmpctx.fontSize = getFontSize();
+
+        //Set height for dynamic texture
+        DTHeight = 1.5 * getFontSize();
+        DTWidth = tmpctx.measureText(text).width;
+
+        //Calcultae ratio
+        ratio = polygonHeight / DTHeight;
+
+        polygonWidth = DTWidth * ratio;
+
+        //Create dynamic texture and write the text
+        dynamicTexture = new BABYLON.DynamicTexture("DynamicTexture", { width: DTWidth, height: DTHeight }, scene, false);
+
+        //Speech Bubble Material
+
+     mat = new BABYLON.StandardMaterial("mat", scene);
+        mat.diffuseTexture = dynamicTexture;
+        mat.emissiveColor = new BABYLON.Color3(1, 1, 1);
+        dynamicTexture.drawText(text, null, null, font, "#000000", "#ffffff", true);
+
+
+
+        matRh = new BABYLON.StandardMaterial("mat", scene);
+        matRh.diffuseTexture = dynamicTexture;
+        matRh.emissiveColor = new BABYLON.Color3(0.45, 0.66, 1);
+        dynamicTexture.drawText(text, null, null, font, "#000000", "#ffffff", true);
+
+           matRj = new BABYLON.StandardMaterial("mat", scene);
+        matRj.diffuseTexture = dynamicTexture;
+        matRj.emissiveColor = new BABYLON.Color3(1, 0.62, 0);
+        dynamicTexture.drawText(text, null, null, font, "#000000", "#ffffff", true);
+
+        //bottom left corner
+        let centerX = -(0.5 * polygonWidth - radius);
+        let centerZ = -(0.5 * depth - radius);
+        for (let theta = Math.PI; theta <= 1.5 * Math.PI; theta += dTheta) {
+            shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+        }
+
+        //bottom right corner
+        centerX = 0.5 * polygonWidth - radius;
+        for (let theta = 1.5 * Math.PI; theta <= 2 * Math.PI; theta += dTheta) {
+            shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+        }
+
+        //top right corner
+        centerZ = 0.5 * depth - radius;
+        for (let theta = 0; theta <= 0.5 * Math.PI; theta += dTheta) {
+            shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+        }
+
+        //top left corner
+        centerX = -(0.5 * polygonWidth - radius);
+        for (let theta = 0.5 * Math.PI; theta <= Math.PI; theta += dTheta) {
+            shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+        }
+
+        // Dispose of the old polygon
+        if (polygon) {
+            polygon.dispose();
+        }
+
+        polygon = BABYLON.MeshBuilder.CreatePolygon("polygon", {
+            shape: shape,
+            sideOrientation: BABYLON.Mesh.DOUBLESIDE,
+        });
+
+        polygon.material = mat;
+        polygon.rotation.x = -1.56;
+
+    }
+
+    function updateSpeechBubble() {
+
+        //Use a temporay dynamic texture to calculate the length of the text on the dynamic texture canvas
+        tmpctx.font = getFont();
+        tmpctx.fontSize = getFontSize();
+
+        //back
+        var polygonHeight = 3;
+
+        //Set height for dynamic texture
+        DTHeight = 1.5 * font_size; //or set as wished
+
+        //Calcultae ratio
+        ratio = polygonHeight / DTHeight;
+
+        DTWidth = tmpctx.measureText(text).width;
+        polygonWidth = DTWidth * ratio;
+
+        //Create dynamic texture and write the text
+        dynamicTexture = new BABYLON.DynamicTexture("DynamicTexture", { width: DTWidth, height: DTHeight }, scene, false);
+
+        mat.diffuseTexture = dynamicTexture;
+        dynamicTexture.drawText(text, null, null, font, "#000000", "#ffffff", true);
+
+    }
+
+    //Update Speech Bubble Background Texture
+    function updateTexture() {
+
+        tmpctx.font = getFont(); // Set font size and family
+
+        DTWidth = tmpctx.measureText(text).width;
+        DTHeight = 1.5 * getFontSize(); //or set as wished
+
+        polygonWidth = DTWidth * ratio;
+
+        // Update the shape of the polygon
+        shape = [];
+        shape.push(new BABYLON.Vector3(-polygonWidth / 2, 0, -depth / 2));
+        shape.push(new BABYLON.Vector3(polygonWidth / 2, 0, -depth / 2));
+        shape.push(new BABYLON.Vector3(polygonWidth / 2, 0, depth / 2));
+        shape.push(new BABYLON.Vector3(-polygonWidth / 2, 0, depth / 2));
+
+        // Create dynamic texture and write the text
+        dynamicTexture = new BABYLON.DynamicTexture("DynamicTexture", { width: DTWidth, height: DTHeight }, scene, false);
+
+        mat.diffuseTexture = dynamicTexture;
+        dynamicTexture.drawText(text, null, null, font, "#000000", "#ffffff", true);
+
+        polygon.width = polygonWidth;
+
+    }
+
+    function updatePolygonWidth() {
+
+        // Calculate the new width of the polygon based on the new text
+        temp = new BABYLON.DynamicTexture("DynamicTexture", 1024, scene);
+        tmpctx = temp.getContext();
+
+        tmpctx.font = getFont(); // Set font size and family
+
+        DTWidth = tmpctx.measureText(text).width;
+
+        ratio = polygonHeight / DTHeight;
+
+        polygonWidth = DTWidth * ratio;
+
+        // Update the shape of the polygon
+        shape = [];
+        depth = 4; //with 0 radius
+        radius = 1;
+        dTheta = Math.PI / 32;
+
+        //bottom left corner
+        let centerX = -(0.5 * polygonWidth - radius);
+        let centerZ = -(0.5 * depth - radius);
+
+        for (let theta = Math.PI; theta <= 1.5 * Math.PI; theta += dTheta) {
+            shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+        }
+
+        //bottom right corner
+        centerX = 0.5 * polygonWidth - radius;
+        for (let theta = 1.5 * Math.PI; theta <= 2 * Math.PI; theta += dTheta) {
+            shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+        }
+
+        //top right corner
+        centerZ = 0.5 * depth - radius;
+        for (let theta = 0; theta <= 0.5 * Math.PI; theta += dTheta) {
+            shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+        }
+
+        //top left corner
+        centerX = -(0.5 * polygonWidth - radius);
+        for (let theta = 0.5 * Math.PI; theta <= Math.PI; theta += dTheta) {
+            shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+        }
+
+        // Dispose of the old polygon
+        if (polygon) {
+            polygon.dispose();
+        }
+
+        // Create a new polygon with the new shape
+        polygon = BABYLON.MeshBuilder.CreatePolygon("polygon", {
+            shape: shape,
+            sideOrientation: BABYLON.Mesh.DOUBLESIDE,
+        });
+
+        polygon.material = mat;
+        polygon.rotation.x = -1.56;
+
+    }
+
+    //GUI
+    function buildGUI() {
+
+        //GUI box with controls
+        var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+        var selectBox = new BABYLON.GUI.SelectionPanel("sp");
+        selectBox.width = 0.2;
+        selectBox.height = 0.5;
+        selectBox.scaleY = 1.5;
+        selectBox.scaleX = 1.5;
+        selectBox.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        selectBox.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+
+        advancedTexture.addControl(selectBox);
+
+        //Language
+        var languageGroup = new BABYLON.GUI.RadioGroup("Language");
+        languageGroup.addRadio("English", function () { language("English"); }, true);
+        languageGroup.addRadio("French", function () { language("French"); });
+        languageGroup.addRadio("Spanish", function () { language("Spanish"); });
+        languageGroup.addRadio("Eyes", function () { language("Eyes"); });
+        languageGroup.addRadio("Jayme", function () { language("Jayme"); });
+        languageGroup.addRadio("Rhonda", function () { language("Rhonda"); });
+
+        selectBox.addGroup(languageGroup);
+
+        //Text Quality
+        var fontGroup = new BABYLON.GUI.RadioGroup("Text Quality");
+
+        fontGroup.addRadio("1024", function () { setPointSize("1024"); }, true);
+        fontGroup.addRadio("200", function () { setPointSize("200"); });
+        fontGroup.addRadio("48", function () { setPointSize("48"); });
+        selectBox.addGroup(fontGroup);
+
+    }
+
+
+    var whoJayme = "FluentAvatar-jayme.png";
+    var whoRhonda = "FluentAvatar-rhonda.png";
+      var whoZ = "FluentAvatar-z.png";
+
+    var matJ = new BABYLON.StandardMaterial("matJ", scene);
+    var mattexture = new BABYLON.Texture("https://raw.githubusercontent.com/SamCundall/BabylonJS/main/" + whoJayme, scene);
+    matJ.emissiveTexture = mattexture;
+    matJ.opacityTexture = matJ.emissiveTexture;
+    matJ.backFaceCulling = false;
+
+    var matR = new BABYLON.StandardMaterial("matR", scene);
+    var mattextureR = new BABYLON.Texture("https://raw.githubusercontent.com/SamCundall/BabylonJS/main/" + whoRhonda, scene);
+    matR.emissiveTexture = mattextureR;
+    matR.opacityTexture = matR.emissiveTexture;
+    matR.backFaceCulling = false;
+
+      var matZ = new BABYLON.StandardMaterial("matZ", scene);
+    var mattextureZ = new BABYLON.Texture("https://raw.githubusercontent.com/SamCundall/BabylonJS/main/" + whoZ, scene);
+    matZ.emissiveTexture = mattextureZ;
+    matZ.opacityTexture = matZ.emissiveTexture;
+    matZ.backFaceCulling = false;
+
+    var plane = BABYLON.MeshBuilder.CreatePlane('plane', { height: 5, width: 5 }, scene);
+    plane.material = matR;
+    plane.position.z = -1;
+    plane.position.y = -3;
+    plane.position.x = 3.5;
+    plane.rotation.y = 0;
+    plane.rotation.z = -0.2;
+
+
+    //Language Selection Logic
+    function language(radioButtonValue) {
+
+        let languageEnglish = " " + "Hello" + " ";
+        let languageFrench = " " + "Bonjour" + " ";
+        let languageSpanish = " " + "Hola" + " ";
+        let languageEyes = " " + "1,2,3 Eyes on me" + " ";
+        let languageJayme = " " + "Hi, I'm Jayme!" + " ";
+        let languageRhonda = " " + "I'm Rhonda" + " ";
+
+
+        switch (radioButtonValue) {
+            case "English":
+                text = languageEnglish;
+                  polygon.material = mat;
+                plane.material = matZ;
+                plane.position.x = 3.5;
+                plane.position.y = -3;
+                plane.position.z = -1;
+                plane.rotation.y = 0;
+                plane.rotation.z = -0.2;
+                break;
+            case "French":
+                text = languageFrench;
+                  polygon.material = mat;
+                plane.material = matZ;
+                plane.position.x = 3.5;
+                plane.position.y = -3;
+                plane.position.z = -1;
+                plane.rotation.y = 0;
+                plane.rotation.z = -0.2;
+                break;
+            case "Spanish":
+                text = languageSpanish;
+                  polygon.material = mat;
+                plane.material = matZ;
+                plane.position.x = 3.5;
+                plane.position.y = -3;
+                plane.position.z = -1;
+                plane.rotation.y = 0;
+                plane.rotation.z = -0.2;
+                break;
+            case "Eyes":
+                text = languageEyes;
+                 polygon.material = mat;
+                plane.material = matZ;
+                plane.position.x = 3.5;
+                plane.position.y = -3;
+                plane.position.z = -1;
+                plane.rotation.y = 0;
+                plane.rotation.z = -0.2;
+                break;
+            case "Jayme":
+                text = languageJayme;
+                polygon.material = matRj;
+                plane.material = matJ;
+                plane.position.x = 7;
+                plane.position.z = -1;
+                plane.position.y = -3;
+                plane.rotation.y = 0;
+                plane.rotation.z = -0.2;
+                break;
+            case "Rhonda":
+                text = languageRhonda;
+                polygon.material = matRh;
+                plane.material = matR;
+                plane.position.x = -6;
+                plane.position.y = -3.5;
+                plane.position.z = -1;
+                plane.rotation.y = 0;
+                plane.rotation.z = 0.2;
+                break;
+        }
+
+        updateTexture();
+        updatePolygonWidth();
+
+    }
+
+    //Font Selection Logic
+    function setPointSize(radioButtonValue) {
+
+        // Convert radioButtonValue to a number
+        var size = parseInt(radioButtonValue, 10);
+
+        switch (radioButtonValue) {
+            case 1024:
+                size = 1024;
+                break;
+            case 512:
+                size = 512;
+                break;
+            case 200:
+                size = 200;
+                break;
+        }
+
+        // Update the the point size
+        updatePointSize(size);
+        updateTexture();
+        updatePolygonWidth();
+
+    }
+
+    function updatePointSize(value) {
+        if (tmpctx) {
+
+            font_size = value;
+            tmpctx.font = getFont(); // Set font size and family
+            font = getFont();
+
+        } else {
+            console.log("tmpctx is undefined");
+        }
+    }
+
+    function getFontSize() {
+        return font_size;
+    }
+
+    function getFont() {
+        font = "bold " + getFontSize() + "px Arial"; // Set font size and family
+        return font;
+    }
+
+    //Initialize (run first)
+    function init() {
+
+        //back
+        polygonHeight = 3;
+
+        font = "bold " + getFontSize() + "px Arial";
+
+        //Set height for dynamic texture
+        DTHeight = 1.5 * getFontSize(); //or set as wished
+
+        //Calcultae ratio
+        ratio = polygonHeight / DTHeight;
+
+        //Set text
+        text = " " + "hello" + " ";
+
+        //Create Speech Bubble
+        createSpeechBubble();
+
+        //Create GUI
+        buildGUI();
+    }
+
+    //Initialize
+    init();
+
+    return scene;
+};
+
+                window.initFunction = async function() {
+                    
+                    
+                    
+                    var asyncEngineCreation = async function() {
+                        try {
+                        return createDefaultEngine();
+                        } catch(e) {
+                        console.log("the available createEngine function failed. Creating the default engine instead");
+                        return createDefaultEngine();
+                        }
+                    }
+
+                    window.engine = await asyncEngineCreation();
+        if (!engine) throw 'engine should not be null.';
+        startRenderLoop(engine, canvas);
+        window.scene = createScene();};
+        initFunction().then(() => {sceneToRender = scene                    
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
