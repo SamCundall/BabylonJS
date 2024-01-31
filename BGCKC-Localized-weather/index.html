@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
+        <script src="https://cdn.babylonjs.com/recast.js"></script>
+        <script src="https://cdn.babylonjs.com/ammo.js"></script>
+        <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+        <script src="https://cdn.babylonjs.com/cannon.js"></script>
+        <script src="https://cdn.babylonjs.com/Oimo.js"></script>
+        <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
+        <script src="https://cdn.babylonjs.com/babylon.js"></script>
+        <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+        <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+            
+            #canvasZone {
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+<body>
+    <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var startRenderLoop = function (engine, canvas) {
+            engine.runRenderLoop(function () {
+                if (sceneToRender && sceneToRender.activeCamera) {
+                    sceneToRender.render();
+                }
+            });
+        }
+
+        var engine = null;
+        var scene = null;
+        var sceneToRender = null;
+        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+                
+        var sphere = null;
+        var box = null;
+        var torus = null;
+        var cylinder = null;
+        var cloud = null;
+        var allMeshes = [];
+        var weatherLocation = 'KTRM.rss';
+        var clothes = "";
+        var inClub = "";
+        var textBlock = null;
+
+//FOR TESTING ONLY /////////////
+//Use to override weather
+var lightTypeB = null;
+var lightTypeY = null;
+var testMode = false; //Turn test mode  on/off
+
+var weatherTest = "rain";  //rain, cloudy, overcast, sunny
+
+////////////////////
+
+
+
+var createScene = function () {
+    // This creates a basic Babylon Scene object (non-mesh)
+    var scene = new BABYLON.Scene(engine);
+    scene.clearColor = new BABYLON.Color3(0.5, 0.5, 1);
+
+    var camera = new BABYLON.ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2, 2, new BABYLON.Vector3(0, 0, 5), scene);
+    camera.target = new BABYLON.Vector3(0,0,0);
+    camera.attachControl(canvas, true);
+
+
+    //var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+var lightBlue = new BABYLON.Color3(0, 1, 0.97);
+var lightYellow = new BABYLON.Color3(0.96, 1, 0);
+
+    lightTypeB = new BABYLON.HemisphericLight("hemiLight", new BABYLON.Vector3(1, 1.5, -1), scene);
+    lightTypeB.specular = new BABYLON.Color3(0, 0, 0, 0.99);
+lightTypeB.groundColor = new BABYLON.Color3(1, 0, 0.65);
+  lightTypeB.diffuse = lightBlue;
+    lightTypeB.intensity = 1;
+
+        lightTypeY = new BABYLON.HemisphericLight("hemiLight", new BABYLON.Vector3(1, 1.5, -1), scene);
+    lightTypeY.specular = new BABYLON.Color3(0, 0, 0, 0.99);
+lightTypeY.groundColor = lightYellow;
+  lightTypeY.diffuse = lightYellow;
+    lightTypeY.intensity = 1;
+
+
+    // Create the meshes
+    sphere = BABYLON.MeshBuilder.CreateSphere('sphere', {}, scene);
+    box = BABYLON.MeshBuilder.CreateBox('box', {}, scene);
+    torus = BABYLON.MeshBuilder.CreateTorus('torus', {}, scene);
+    cylinder = BABYLON.MeshBuilder.CreateCylinder('cylinder', {}, scene);
+
+
+// Load a GLB model
+    BABYLON.SceneLoader.ImportMeshAsync(null, 'https://raw.githubusercontent.com/rudyvess/asset-repo/main/glb-general/', 'weather-cloud02.glb', scene).then(results => {
+        
+        results.meshes[1].name = "cloud";
+        cloud = results.meshes[1];       
+         cloud.position = new BABYLON.Vector3(0, 0, 0);
+        cloud.rotation = new BABYLON.Vector3(0, 0, 0);
+        cloud.scaling = new BABYLON.Vector3(0.5,0.5,0.5);
+            cloud.setEnabled(false);
+
+            allMeshes.push(cloud);
+    });
+
+    BABYLON.SceneLoader.ImportMeshAsync(null, 'https://raw.githubusercontent.com/rudyvess/asset-repo/main/glb-general/', 'weather-sun.glb', scene).then(results => {
+        
+        results.meshes[1].name = "sunny";
+        sun = results.meshes[1];       
+         sun.position = new BABYLON.Vector3(0, 0, 0);
+        sun.rotation = new BABYLON.Vector3(0, 0, 0);
+        sun.scaling = new BABYLON.Vector3(0.5,0.5,0.5);
+            sun.setEnabled(false);
+
+            allMeshes.push(sun);
+    });
+
+        BABYLON.SceneLoader.ImportMeshAsync(null, 'https://raw.githubusercontent.com/rudyvess/asset-repo/main/glb-general/', 'weather-rain.glb', scene).then(results => {
+        
+        results.meshes[0].name = "rain";
+        rain = results.meshes[0];       
+         rain.position = new BABYLON.Vector3(0, 0, 0);
+        rain.rotation = new BABYLON.Vector3(0, 0, 0);
+        rain.scaling = new BABYLON.Vector3(0.5,0.5,0.5);
+            rain.setEnabled(false);
+
+            allMeshes.push(rain);
+    });
+
+    BABYLON.SceneLoader.ImportMeshAsync(null, 'https://raw.githubusercontent.com/rudyvess/asset-repo/main/glb-general/', 'weather-cloud02.glb', scene).then(results => {
+        
+        results.meshes[1].name = "overcast";
+        overcast = results.meshes[1];       
+        overcast.position = new BABYLON.Vector3(0, 0, 0);
+        overcast.rotation = new BABYLON.Vector3(0, 0, 0);
+        overcast.scaling = new BABYLON.Vector3(0.5,0.5,0.5);
+        overcast.setEnabled(false);
+
+            allMeshes.push(overcast);
+    });
+
+    BABYLON.SceneLoader.ImportMeshAsync(null, 'https://raw.githubusercontent.com/rudyvess/asset-repo/main/glb-general/', 'weather-sun.glb', scene).then(results => {
+        
+        results.meshes[1].name = "fair";
+        fair = results.meshes[1];       
+        fair.position = new BABYLON.Vector3(0, 0, 0);
+        fair.rotation = new BABYLON.Vector3(0, 0, 0);
+        fair.scaling = new BABYLON.Vector3(0.5,0.5,0.5);
+        fair.setEnabled(false);
+
+            allMeshes.push(fair);
+    });
+
+
+
+    // Array of all meshes
+    allMeshes.push(sphere, box, torus, cylinder);
+
+    // Hide all meshes initially
+    sphere.setEnabled(false);
+    box.setEnabled(false);
+    torus.setEnabled(false);
+    cylinder.setEnabled(false);
+
+
+    // Assume you have a function getWeather() that fetches the weather keyword from your server-side script
+    getWeather().then(weather => {
+
+        console.log(weather);
+
+let lightBlue = new BABYLON.Color3(0, 1, 0.97);
+let lightYellow = new BABYLON.Color3(0.96, 1, 0);
+
+        switch (weather) {
+            case 'rain':
+                enableOnlySelectedMesh('rain');
+                  //  lightType.groundColor = lightBlue;
+                     lightTypeB.diffuse = lightBlue;
+                break;
+
+            case 'sunny':
+                enableOnlySelectedMesh('sun');
+              //  lightType.groundColor = lightYellow;
+                     lightTypeY.diffuse = lightYellow;
+                break;
+
+            case 'cloudy':
+                enableOnlySelectedMesh('cloud');
+          //     lightType.groundColor = lightBlue;
+                lightTypeB.diffuse = lightBlue;
+                break;
+            
+            case 'clouds':
+                enableOnlySelectedMesh('cloud');
+          //    lightType.groundColor = lightBlue;
+               lightTypeB.diffuse = lightBlue;
+                break;
+
+            case 'overcast':
+                enableOnlySelectedMesh('cloud');
+           //   lightType.groundColor = lightBlue;
+               lightTypeB.diffuse = lightBlue;
+                break;
+
+            case 'fair':
+                enableOnlySelectedMesh('fair');
+        //    lightType.groundColor = lightYellow;
+                     lightTypeY.diffuse = lightYellow;
+                break;
+                            
+           default:
+                enableOnlySelectedMesh('sunny');
+          //  lightType.groundColor = lightYellow;
+                     lightTypeY.diffuse = lightYellow;
+                break;
+        }
+
+        // Create a GUI
+        var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+        textBlock = new BABYLON.GUI.TextBlock("sp");
+        textBlock.text = clothes+"It's "+weather+inClub;
+        textBlock.width = 1;
+        textBlock.height = 0.5;
+        textBlock.scaleY = 1;
+        textBlock.scaleX = 1;
+        textBlock.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        textBlock.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+
+        // Add the text block to the GUI
+        advancedTexture.addControl(textBlock);
+
+    });
+
+
+
+    //Get Weather from RSS Feed
+    async function getWeather() {
+       
+        console.log(weatherLocation);
+        
+        //Source Feed
+        const response = await fetch(('https://w1.weather.gov/xml/current_obs/')+weatherLocation);
+
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.statusText}`);
+        }
+
+        const text = await response.text();
+
+
+        // Parse the XML text
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(text, "text/xml");
+
+        // Get all title tags
+        const titles = xmlDoc.getElementsByTagName('title');
+
+        // Check if there are at least 2 title tags
+        if (titles.length < 2) {
+            throw new Error('Not enough title tags in the XML');
+        }
+
+        // Get the text of the 2nd title tag
+        const titleText = titles[2].textContent;
+        console.log(titleText);
+
+        // Search for keywords in the title text
+        const keywords = ['sunny', 'cloudy', 'overcast', 'rain', 'snow', 'fair'];
+        var weather = keywords.find(keyword => titleText.toLowerCase().includes(keyword));
+
+        if (!weather) {
+            weather = 'sunny';
+            //throw new Error('No weather keyword found in the title text');
+            
+        }
+
+        //NOTE: ONLY USE FOR TESTING
+        if(testMode){
+            weather = weatherTest; //<--Set Current State
+        }
+
+        return weather;
+
+
+      }
+
+//GUI
+
+    function setClub(radioButtonValue) {
+        switch (radioButtonValue) {
+            case "Seattle":
+                weatherLocation = 'KSEA.rss';
+                clothes = "Grab a coat and gumboots,"
+                getWeather().then(weather => {
+                    enableOnlySelectedMesh(weather);
+                    textBlock.text = clothes+" It's " + weather + " in the Seattle Club";
+                });
+                break;
+            case "NewYork":
+                weatherLocation = 'KNYC.rss';
+                clothes = "Wrap up warm,"
+                getWeather().then(weather => {
+                    enableOnlySelectedMesh(weather);
+                    textBlock.text = clothes+" It's " + weather + " in the New York Club";
+                });
+                break;
+            case "California":
+                weatherLocation = 'KTRM.rss';
+                clothes = "Keep cool with shades and water,"
+                getWeather().then(weather => {
+                    enableOnlySelectedMesh(weather);
+                    textBlock.text = clothes+" It's " + weather + " in the California Club";
+                });
+                break;
+        }
+    }
+
+
+    //GUI box with controls 
+    var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+    var selectBox = new BABYLON.GUI.SelectionPanel("sp");
+    selectBox.width = 0.2;
+    selectBox.height = 0.5;
+    selectBox.scaleY = 1.5;
+    selectBox.scaleX = 1.5;
+    selectBox.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+    selectBox.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+
+    advancedTexture.addControl(selectBox);
+
+    var clubGroup = new BABYLON.GUI.RadioGroup("Choose Club");
+    clubGroup.addRadio("Seattle Club", function () { setClub("Seattle"); }, true);
+    clubGroup.addRadio("New York Club", function () { setClub("NewYork"); });
+    clubGroup.addRadio("California Club", function () { setClub("California"); });
+
+    selectBox.addGroup(clubGroup);
+
+    return scene;
+};
+
+    function enableOnlySelectedMesh(selectedMeshName) {
+
+        // Loop over all meshes
+        for (let mesh of allMeshes) {
+            // If the mesh's name matches the selected mesh name, enable it
+            if (mesh.name === selectedMeshName) {
+                mesh.setEnabled(true);
+            }
+            // Otherwise, disable it
+            else {
+                mesh.setEnabled(false);
+            }
+        }
+    }
+                window.initFunction = async function() {
+                    
+                    
+                    
+                    var asyncEngineCreation = async function() {
+                        try {
+                        return createDefaultEngine();
+                        } catch(e) {
+                        console.log("the available createEngine function failed. Creating the default engine instead");
+                        return createDefaultEngine();
+                        }
+                    }
+
+                    window.engine = await asyncEngineCreation();
+        if (!engine) throw 'engine should not be null.';
+        startRenderLoop(engine, canvas);
+        window.scene = createScene();};
+        initFunction().then(() => {sceneToRender = scene                    
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
