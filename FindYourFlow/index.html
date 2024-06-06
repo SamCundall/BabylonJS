@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
+        <script src="https://cdn.babylonjs.com/recast.js"></script>
+        <script src="https://cdn.babylonjs.com/ammo.js"></script>
+        <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+        <script src="https://cdn.babylonjs.com/cannon.js"></script>
+        <script src="https://cdn.babylonjs.com/Oimo.js"></script>
+        <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
+        <script src="https://cdn.babylonjs.com/babylon.js"></script>
+        <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+        <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+            
+            #canvasZone {
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+<body>
+    <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var startRenderLoop = function (engine, canvas) {
+            engine.runRenderLoop(function () {
+                if (sceneToRender && sceneToRender.activeCamera) {
+                    sceneToRender.render();
+                }
+            });
+        }
+
+        var engine = null;
+        var scene = null;
+        var sceneToRender = null;
+        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+        const createScene = function () {
+    const scene = new BABYLON.Scene(engine);
+
+    //  const camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, -5, 10, BABYLON.Vector3.Zero());
+    //  camera.attachControl(canvas, true);
+
+    //////Setup scene, camera, lights and emoji////////
+    //set Camera
+
+    /********** ARC ROTATE CAMERA EXAMPLE **************************/
+
+    // Creates, angles, distances and targets the camera
+    var camera = new BABYLON.ArcRotateCamera("Camera", 0, 0, 10, new BABYLON.Vector3(0, 0, 0), scene);
+
+    // This positions the camera
+    camera.setPosition(new BABYLON.Vector3(0, 0, -10));
+    camera.beta = 0.01;
+    // This attaches the camera to the canvas
+    camera.attachControl(canvas, true);
+
+    /**************************************************************/
+
+
+    //Light direction is up and left
+    var light = new BABYLON.HemisphericLight("hemiLight", new BABYLON.Vector3(1, 1.5, -1), scene);
+    light.specular = new BABYLON.Color3(0.05, 0.05, 0.05, 0.99);
+    light.groundColor = new BABYLON.Color3(1, 0.38, 0.97);
+    light.intensity = 1;
+
+    const width = 1.1; // with 0 radius
+    const depth = 1.4; //with 0 radius
+    const radius = 0.1;
+    const dTheta = Math.PI / 32
+
+    ////Polygon maker
+
+
+
+    //Polygon shape in XoZ plane
+    const shape = [];
+
+    //bottom left corner
+    let centerX = -(0.5 * width - radius);
+    let centerZ = -(0.5 * depth - radius);
+    for (let theta = Math.PI; theta <= 1.5 * Math.PI; theta += dTheta) {
+        shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+    }
+
+    //bottom right corner
+    centerX = 0.5 * width - radius;
+    for (let theta = 1.5 * Math.PI; theta <= 2 * Math.PI; theta += dTheta) {
+        shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+    }
+
+    //top right corner
+    centerZ = 0.5 * depth - radius;
+    for (let theta = 0; theta <= 0.5 * Math.PI; theta += dTheta) {
+        shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+    }
+
+    //top left corner
+    centerX = -(0.5 * width - radius);
+    for (let theta = 0.5 * Math.PI; theta <= Math.PI; theta += dTheta) {
+        shape.push(new BABYLON.Vector3(centerX + radius * Math.cos(theta), 0, centerZ + radius * Math.sin(theta)));
+    }
+
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    ///// Polygon Cloner /////////////////////
+
+    //Global Image Path and String
+    var imageUrl = "https://samcundall.github.io/BabylonJS/assets/0";
+
+    // Total number of polygons and number of polygons per row
+    var totalPolygons = 36;
+    var polygonsPerRow = 9;
+
+    // Define the size and padding of each polygon
+    var size = 1;
+    var padding = 0.5;
+
+    // Create a default material
+    var defaultMaterial = new BABYLON.StandardMaterial("defaultMaterial", scene);
+
+    // Load a default image into the default material
+    defaultMaterial.diffuseTexture = new BABYLON.Texture("https://samcundall.github.io/BabylonJS/assets/00.png", scene);
+
+    // Calculate total number of rows
+    var totalRows = Math.ceil(totalPolygons / polygonsPerRow);
+
+    // Generate the polygons and assign each image to the corresponding polygon
+    for (var i = 0; i < totalPolygons; i++) {
+        // Calculate the position of the polygon
+        var x = (i % polygonsPerRow) * (size + padding*0.4);
+        var z = (totalRows - Math.floor(i / polygonsPerRow) - 1) * (size + padding);
+
+        // Create a clone of the polygon
+        var polygon = BABYLON.MeshBuilder.CreatePolygon("polygon" + i, { shape: shape, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene);
+        polygon.position.x = x - 5;
+        polygon.position.z = z - 2;
+
+
+        // Create a new material for the polygon
+        var material = defaultMaterial.clone("material" + i);
+
+        // Set texture of the material to image
+        material.diffuseTexture = new BABYLON.Texture(imageUrl + [i] + '.png', scene);
+
+        // Assign material to new polygon
+        polygon.material = material;
+    }
+    ///////////////////////////////////////////////////////////////////////////////////
+
+    return scene;
+
+}
+
+                window.initFunction = async function() {
+                    
+                    
+                    
+                    var asyncEngineCreation = async function() {
+                        try {
+                        return createDefaultEngine();
+                        } catch(e) {
+                        console.log("the available createEngine function failed. Creating the default engine instead");
+                        return createDefaultEngine();
+                        }
+                    }
+
+                    window.engine = await asyncEngineCreation();
+        if (!engine) throw 'engine should not be null.';
+        startRenderLoop(engine, canvas);
+        window.scene = createScene();};
+        initFunction().then(() => {sceneToRender = scene                    
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
