@@ -82,7 +82,10 @@
     camera.attachControl(canvas, true);
 
     /**************************************************************/
-
+engine.setHardwareScalingLevel(1 / window.devicePixelRatio);
+window.addEventListener("resize", () => {
+    advancedTexture.scaleTo(engine.getRenderWidth(), engine.getRenderHeight());
+});
 
     //Light direction is up and left
     var light = new BABYLON.HemisphericLight("hemiLight", new BABYLON.Vector3(1, 1.5, -1), scene);
