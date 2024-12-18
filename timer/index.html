@@ -62,110 +62,250 @@
                     var engine = null;
         var scene = null;
         var sceneToRender = null;
-        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
-        var createScene = async function () {
-    // This creates a basic Babylon Scene object (non-mesh)
+        ;
+        var canvas = document.getElementById("renderCanvas");
+
+var engine = null;
+var scene = null;
+var sceneToRender = null;
+
+var createDefaultEngine = function() {
+    return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+};
+
+var createScene = async function () {
     var scene = new BABYLON.Scene(engine);
 
-    // This creates and positions a free camera (non-mesh)
-    var camera = new BABYLON.ArcRotateCamera("camera", BABYLON.Tools.ToRadians(90), BABYLON.Tools.ToRadians(65), 10, BABYLON.Vector3.Zero(), scene);
+    // Create gradient background with a smaller radius
+    var gradientTexture = new BABYLON.DynamicTexture("gradient", { width: 512, height: 512 }, scene, false);
+    var ctx = gradientTexture.getContext();
+    // Reduce the outer radius of the gradient
+    var gradient = ctx.createRadialGradient(256, 256, 0, 256, 256, 128);
+    gradient.addColorStop(0, "#222222");
+    gradient.addColorStop(1, "black");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 512, 512);
+    gradientTexture.update();
 
-    // This targets the camera to scene origin
-    camera.setTarget(BABYLON.Vector3.Zero());
+    var backgroundLayer = new BABYLON.Layer("background", null, scene, true);
+    backgroundLayer.texture = gradientTexture;
 
-    // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
+    var camera = new BABYLON.ArcRotateCamera("camera", 0, 0, 10, BABYLON.Vector3.Zero(), scene);
+    camera.setPosition(new BABYLON.Vector3(0, 0, -10));
+
     var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+    light.intensity = 1.0;
 
-    // Default intensity is 1. Let's dim the light a small amount
-    light.intensity = 0.7;
+    let seconds = 60 * 15; // Main timer (15:00)
+    const totalSeconds = 60 * 15;
+    const timerColor = "#999fff";
 
-    //
+    let smallSec = 0; // Small timer counting from 0 to 15 seconds
 
-    let seconds = 60*15
+    function calculateFontSize() {
+        const width = engine.getRenderWidth();
+        const height = engine.getRenderHeight();
+        const size = Math.min(width, height);
+        return Math.max(Math.floor(size / 10), 16);
+    }
 
-    let visibility = 0
-    const radius = 1
-    const segments = 120 // higher = smoother circle
-    const speed = 2 / seconds
+    const gui = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("gui");
 
-    const gui = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("gui")
-    const counterLabel = new BABYLON.GUI.TextBlock("counter", "15m timer")
-    counterLabel.fontSize = 30
-    counterLabel.color = "white"
+    // Main timer label
+    const counterLabel = new BABYLON.GUI.TextBlock("counter", "15:00");
+    counterLabel.fontSize = calculateFontSize();
+    counterLabel.color = timerColor;
+    counterLabel.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+    counterLabel.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+    gui.addControl(counterLabel);
 
-    // position of the counter
-    counterLabel.leftInPixels = 50
-    counterLabel.topInPixels = 50
-
-    counterLabel.widthInPixels = 160
-    counterLabel.heightInPixels = 100
-    counterLabel.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT
-    counterLabel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP
-    gui.addControl(counterLabel)
+    // Small timer label (half the size of main timer)
+    const smallCounterLabel = new BABYLON.GUI.TextBlock("smallCounter", "00:00");
+    smallCounterLabel.fontSize = counterLabel.fontSize / 2;
+    smallCounterLabel.color = timerColor;
+    smallCounterLabel.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+    smallCounterLabel.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+    // Move the small timer above the main timer
+    smallCounterLabel.top = `-${counterLabel.fontSize}px`;
+    gui.addControl(smallCounterLabel);
 
     function setCounterLabel(seconds) {
-        const label = new Date(seconds * 1000).toISOString().substr(14, 5);
-        counterLabel.text = `${label}`
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        counterLabel.text = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
-    //
-
-    const points = BABYLON.GreasedLineTools.GetCircleLinePoints(radius, segments)
-    const circle = BABYLON.CreateGreasedLine("circle-loader", {
-        points
-    }, {
-        visibility
-    })
-
-    circle.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL
-
-
-    const screenToWorld = function (x, y, z) {
-        const screenPosition = new BABYLON.Vector3(x, y, z)
-        const viewMatrix = scene.getViewMatrix()
-        const projectionMatrix = scene.getProjectionMatrix()
-        const vector = BABYLON.Vector3.Unproject(screenPosition, engine.getRenderWidth(), engine.getRenderHeight(), BABYLON.Matrix.Identity(), viewMatrix, projectionMatrix)
-        return vector
+    function setSmallCounterLabel(sec) {
+        if (sec > 900) sec = 900;
+        const secs = sec % 60;
+        smallCounterLabel.text = `00:${secs.toString().padStart(2, '0')}`;
     }
+
+    // Create a half-circle arc from left (π) to right (0)
+    function createOutlineArc(radius, startArc = Math.PI, endArc = 0) {
+        const points = [];
+        const segments = 100; // number of segments for smoothness
+        
+        for (let i = 0; i <= segments; i++) {
+            const angle = startArc + (i / segments) * (endArc - startArc);
+            points.push(new BABYLON.Vector3(
+                Math.cos(angle) * radius,
+                Math.sin(angle) * radius,
+                0
+            ));
+        }
+
+        const lines = BABYLON.MeshBuilder.CreateLines("outlineArc", { points: points }, scene);
+        return lines;
+    }
+
+    // Create inner and outer half-circles
+    const innerRadius = 1.8;
+    const outerRadius = 2.2;
+    
+    const innerCircle = createOutlineArc(innerRadius, Math.PI, 0);
+    const outerCircle = createOutlineArc(outerRadius, Math.PI, 0);
+    
+    // Set darker colors for the inner and outer outlines
+    innerCircle.color = BABYLON.Color3.FromHexString("#444444");
+    outerCircle.color = BABYLON.Color3.FromHexString("#333333");
+    innerCircle.alpha = 1.0;
+    outerCircle.alpha = 1.0;
+
+    // Create progress arc
+    function createProgressArc(startAngle, endAngle) {
+        const points = [];
+        const segments = 64;
+        const radius = 2;
+        
+        for (let i = 0; i <= segments; i++) {
+            const currentAngle = startAngle + (i / segments) * (endAngle - startAngle);
+            points.push(new BABYLON.Vector3(
+                Math.cos(currentAngle) * radius,
+                Math.sin(currentAngle) * radius,
+                0
+            ));
+        }
+        
+        const tube = BABYLON.MeshBuilder.CreateTube("progress", {
+            path: points,
+            radius: 0.15,
+            sideOrientation: BABYLON.Mesh.DOUBLESIDE,
+            updatable: true
+        }, scene);
+        
+        return tube;
+    }
+
+    // Start angle on the left side (π)
+    const startAngle = Math.PI;
+    let progress = createProgressArc(startAngle, startAngle);
+
+    let progressMaterial = new BABYLON.StandardMaterial("progressMaterial", scene);
+    progressMaterial.emissiveColor = BABYLON.Color3.FromHexString("#808080");
+    progressMaterial.diffuseColor = BABYLON.Color3.FromHexString("#5555ff");
+    progressMaterial.specularColor = BABYLON.Color3.Black();
+    progressMaterial.selfIllumination = true;
+    progress.material = progressMaterial;
 
     scene.onReadyObservable.addOnce(() => {
-        const position2d = new BABYLON.Vector3(
-            counterLabel.leftInPixels,
-            counterLabel.topInPixels,
-            0.7
-        )
-        const position3d = screenToWorld(position2d.x, position2d.y, position2d.z)
-        position3d.x -= radius / 2
-        position3d.y -= radius / 2
-        circle.position = position3d
-
-        //
+        setCounterLabel(seconds);
+        setSmallCounterLabel(smallSec);
 
         const interval = window.setInterval(() => {
-            seconds--
-            setCounterLabel(seconds)
+            seconds--;
+            // Update main timer
+            setCounterLabel(seconds);
+            
+            // Update small timer (up to 15 sec)
+            if (smallSec < 900) {
+                smallSec++;
+            }
+            setSmallCounterLabel(smallSec);
 
-            visibility += speed * scene.getAnimationRatio()
-            if (visibility > 1) visibility = 0
-        }, 1000)
-        // clearInterval(interval) // don't forget to kill the interval
+            // Update progress arc
+            const currentProgress = (totalSeconds - seconds) / totalSeconds;
+            const newEndAngle = startAngle - Math.PI * currentProgress; // moves toward 0
 
+            const newProgress = createProgressArc(startAngle, newEndAngle);
+            newProgress.material = progressMaterial;
+            progress.dispose();
+            progress = newProgress;
+            
+            if (seconds <= 0) {
+                clearInterval(interval);
+            }
+        }, 1000);
 
-    })
+        window.addEventListener("dblclick", resetTimer);
 
-    scene.onBeforeRenderObservable.add(() => {
-        circle.greasedLineMaterial.visibility = BABYLON.Scalar.Lerp(circle.greasedLineMaterial.visibility, visibility, 0.05)
-    })
+        scene.onDisposeObservable.add(() => {
+            window.removeEventListener("dblclick", resetTimer);
+            clearInterval(interval);
+        });
+    });
+
+    window.addEventListener("resize", () => {
+        counterLabel.fontSize = calculateFontSize();
+        // Update the small timer's font size as well (half)
+        smallCounterLabel.fontSize = counterLabel.fontSize / 2;
+        // Adjust the small timer position relative to the new font size
+        smallCounterLabel.top = `-${counterLabel.fontSize}px`;
+    });
+
+    function resetTimer() {
+        seconds = totalSeconds;
+        smallSec = 0;
+        setCounterLabel(seconds);
+        setSmallCounterLabel(smallSec);
+        const newProgress = createProgressArc(startAngle, startAngle); // reset to starting point
+        newProgress.material = progressMaterial;
+        progress.dispose();
+        progress = newProgress;
+    }
 
     return scene;
 };
+
+var startRenderLoop = function (engine, canvas) {
+    engine.runRenderLoop(function () {
+        if (sceneToRender && sceneToRender.activeCamera) {
+            sceneToRender.render();
+        }
+    });
+}
+
+window.initFunction = async function() {
+    var asyncEngineCreation = async function() {
+        try {
+            return createDefaultEngine();
+        } catch(e) {
+            console.log("the available createEngine function failed. Creating the default engine instead");
+            return createDefaultEngine();
+        }
+    }
+
+    engine = await asyncEngineCreation();
+    if (!engine) throw 'engine should not be null.';
+    startRenderLoop(engine, canvas);
+    scene = createScene();
+    scene.then(returnedScene => { sceneToRender = returnedScene; });
+};
+
+initFunction().then(() => {
+    // Scene has been initialized
+});
+
+window.addEventListener("resize", function () {
+    engine.resize();
+});
                 window.initFunction = async function() {
                     
                     
                     
                     var asyncEngineCreation = async function() {
                         try {
-                        return createDefaultEngine();
+                        return createEngine();
                         } catch(e) {
                         console.log("the available createEngine function failed. Creating the default engine instead");
                         return createDefaultEngine();
