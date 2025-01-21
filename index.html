@@ -1,415 +1,98 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Button Row</title>
+    <style>
+        .button-container {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+            align-items: center;
+            margin: 0px;
 
-        <title>Babylon.js sample code</title>
-
-        <!-- Babylon.js -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
-        <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
-        <script src="https://cdn.babylonjs.com/recast.js"></script>
-        <script src="https://cdn.babylonjs.com/ammo.js"></script>
-        <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
-        <script src="https://cdn.babylonjs.com/cannon.js"></script>
-        <script src="https://cdn.babylonjs.com/Oimo.js"></script>
-        <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
-        <script src="https://cdn.babylonjs.com/babylon.js"></script>
-        <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
-        <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
-        <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
-        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
-        <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
-        <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
-        <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
-
-        <style>
-            html, body {
-                overflow: hidden;
-                width: 100%;
-                height: 100%;
-                margin: 0;
-                padding: 0;
-            }
-
-            #renderCanvas {
-                width: 100%;
-                height: 100%;
-                touch-action: none;
-            }
-            
-            #canvasZone {
-                width: 100%;
-                height: 100%;
-            }
-        </style>
-    </head>
-<body>
-    <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
-    <script>
-        var canvas = document.getElementById("renderCanvas");
-
-        var startRenderLoop = function (engine, canvas) {
-            engine.runRenderLoop(function () {
-                if (sceneToRender && sceneToRender.activeCamera) {
-                    sceneToRender.render();
-                }
-            });
+        }
+        .button {
+            width: 15%;
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: top;
+            align-items: center;
+            text-decoration: none;
+            font-family: Arial, sans-serif;
+            font-size: 0.8em;
+            color: white;
+            border-radius: 10px;
+            border: none;
+            text-align: center;
+            cursor: pointer;
+  overflow: hidden;
         }
 
-        var engine = null;
-        var scene = null;
-        var sceneToRender = null;
-        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
-        //next: choose groupMe colour, add a hat with boys and girls logo, add fangs for halloween, add glasses
 
+.button span {
+    white-space: nowrap; /* Prevents text wrapping */
+    overflow: hidden; /* Hides overflowing text */
+    text-overflow: ellipsis; /* Adds ellipsis for truncated text */
+    max-width: 80%; /* Ensures the text doesn't exceed button width */
+    display: inline-block; /* Required for text-overflow to work */
+}
 
-const createScene = function () {
-    const scene = new BABYLON.Scene(engine);
+        .button img {
+            width: 40px;
+            height: 40px;
+            margin-top: 20px;
+margin-bottom: 5px;
+ 
 
-    const camera = new BABYLON.ArcRotateCamera("camera1", -Math.PI / 2, Math.PI / 2, 100, new BABYLON.Vector3(0, 0, 0), scene);
-    camera.setTarget(BABYLON.Vector3.Zero());
-    camera.attachControl(canvas, true);
-
-
-    //Light direction is up and left
-    var light = new BABYLON.HemisphericLight("hemiLight", new BABYLON.Vector3(1, 1.5, -1), scene);
-    light.specular = new BABYLON.Color3(0.05, 0.05, 0.05, 0.99);
-    light.groundColor = new BABYLON.Color3(1, 0.38, 0.97);
-    light.intensity = 1;
-
-
-    // Create a sphere for the emoji face
-    var face = BABYLON.MeshBuilder.CreateSphere("face", { diameter: 28 }, scene);
-    face.material = new BABYLON.StandardMaterial("faceMaterial", scene);
-    face.material.diffuseColor = yellow;
-    face.position.z = -2;
-
-var red = new BABYLON.Color3(1, 0.53, 0);
-var yellow = new BABYLON.Color3(1, 0.87, 0);
-var blue= new BABYLON.Color3(0, 0.64, 1);
-
-    // Create two spheres for the pupils
-    var eye1 = BABYLON.MeshBuilder.CreateSphere("eye1", { diameter: 3.3 }, scene);
-    eye1.position.x = -3.5;
-    eye1.position.y = 2.8;
-    eye1.position.z = -17;
-    eye1.material = new BABYLON.StandardMaterial("eyeMaterial", scene);
-    eye1.material.emissiveColor = new BABYLON.Color3(0, 0, 0); // Black color
-
-    var eye2 = eye1.clone("eye2");
-    eye2.position.x = 3.5;
-
-    // Create two spheres for the eye whites
-    var eye3 = BABYLON.MeshBuilder.CreateSphere("eye3", { diameter: 6.5 }, scene);
-    eye3.position.x = -4;
-    eye3.position.y = 3;
-    eye3.position.z = -15;
-    eye3.material = new BABYLON.StandardMaterial("eyeMaterial", scene);
-    eye3.material.emissiveColor = new BABYLON.Color3(1, 1, 1); // Black color
-    var eye4 = eye3.clone("eye4");
-    eye4.position.x = 4;
-
-    //eyebrows
-
-    const mcolor = new BABYLON.Color3(0.4, 0.24, 0.02);
-
-    var sphereB = BABYLON.MeshBuilder.CreateSphere("F", { diameter: 1.5 });
-    var sphereR = BABYLON.MeshBuilder.CreateSphere("F", { diameter: 1.5 });
-    var sphereW = BABYLON.MeshBuilder.CreateSphere("sphereS", { diameter: 1.5 }, scene);
-
-    // x,y,z
-    const b = new BABYLON.Vector3(-0.32, 0.35, -0.8).scale(20);
-    const w = new BABYLON.Vector3(-0.08, 0.35, -0.8).scale(20);
-
-    sphereB.position = b;
-    sphereB.material = new BABYLON.StandardMaterial("");
-    sphereB.material.emissiveColor = mcolor;
-    sphereR.material = new BABYLON.StandardMaterial("");
-    sphereR.material.emissiveColor = mcolor
-    sphereW.position = w;
-    sphereW.material = new BABYLON.StandardMaterial("");
-    sphereW.material.emissiveColor = mcolor
-
-    var happyR = new BABYLON.Vector3(-0.12, 0.375, -0.8).scale(20);
-
-    const arcHappyB = BABYLON.Curve3.ArcThru3Points(b, happyR, w);
-    const arcLineHappyB = BABYLON.CreateGreasedLine("arc", { points: arcHappyB.getPoints() }, { width: 1.5, color: mcolor })
-
-    var brow2 = arcLineHappyB.clone("brow2");
-    var b2 = sphereB.clone("left")
-    var w2 = sphereW.clone("right")
-
-    brow2.position.x = 8;
-    brow2.position.y = 2;
-    b2.position.x = 1.6;
-    b2.position.y = 9;
-    w2.position.y = 9;
-    w2.position.x = 6.4;
-
-    //greaced pencil guide balls
-
-    var sphereF = BABYLON.MeshBuilder.CreateSphere("F", { diameter: 1.5 });
-    var sphereT = BABYLON.MeshBuilder.CreateSphere("F", { diameter: 1.5 });
-    var sphereS = BABYLON.MeshBuilder.CreateSphere("sphereS", { diameter: 1.5 }, scene);
-    var sphereD = BABYLON.MeshBuilder.CreateSphere("sphereD", { diameter: 1.5 }, scene);
-    var sphereU = BABYLON.MeshBuilder.CreateSphere("sphereU", { diameter: 1.5 }, scene);
-
-    //edge guide balls position
-
-    const f = new BABYLON.Vector3(-0.2, -0.15, -0.8).scale(20);
-    const t = new BABYLON.Vector3(0.2, -0.15, -0.8).scale(20);
-    const d = new BABYLON.Vector3(-0.2, -0.2, -0.8).scale(20);
-    const u = new BABYLON.Vector3(0.2, 0, -0.8).scale(20);
-
-    //middle guide balls position
-
-    var happy = new BABYLON.Vector3(0, -0.25, -0.8).scale(20);
-    var sad = new BABYLON.Vector3(0, -0.1, -0.8).scale(20);
-    var confused = new BABYLON.Vector3(0, -0.02, -0.8).scale(20);
-
-    //side ball position and colours
-
-    sphereF.position = f;
-    sphereF.material = new BABYLON.StandardMaterial("");
-    sphereF.material.emissiveColor = mcolor;
-    sphereS.material = new BABYLON.StandardMaterial("");
-    sphereS.material.emissiveColor = mcolor
-    sphereT.position = t;
-    sphereT.material = new BABYLON.StandardMaterial("");
-    sphereT.material.emissiveColor = mcolor
-    sphereD.position = d;
-    sphereD.material = new BABYLON.StandardMaterial("");
-    sphereD.material.emissiveColor = mcolor
-    sphereU.position = u;
-    sphereU.material = new BABYLON.StandardMaterial("");
-    sphereU.material.emissiveColor = mcolor
-
-    //tear
-
-    const tear = new BABYLON.MeshBuilder.CreateCapsule("tear", { radius: 1, height: 4 });
-    tear.material = new BABYLON.StandardMaterial("tearMaterial", scene);
-    tear.material.diffuseColor = new BABYLON.Color3(0, 0.8, 1);
-    tear.position.x = -5;
-    tear.position.y = -5;
-    tear.position.z = -17;
-    //😢
-
-    // Face light - exclude eyes and mouth
-    light.excludedMeshes.push(eye1, eye2, eye3, eye4, sphereF, sphereS, sphereT, sphereB, sphereD, sphereU, sphereR, sphereW, b2, w2);
-
-    //middle guide ball variable positions
-
-
-
-    //arc and line with greased pencil
-
-    const arcHappy = BABYLON.Curve3.ArcThru3Points(f, happy, t);
-    const arcSad = BABYLON.Curve3.ArcThru3Points(f, sad, t);
-    const arcConfused = BABYLON.Curve3.ArcThru3Points(d, confused, u);
-    const arcLineHappy = BABYLON.CreateGreasedLine("arc", { points: arcHappy.getPoints() }, { width: 1.5, color: mcolor })
-    const arcLineSad = BABYLON.CreateGreasedLine("arc", { points: arcSad.getPoints() }, { width: 1.5, color: mcolor })
-    const arcLineConfused = BABYLON.CreateGreasedLine("arc", { points: arcConfused.getPoints() }, { width: 1.5, color: mcolor })
-
-    //Emoji States
-    /* Updated to switch for multiple states - RV */
-    function toPlace(radioButtonValue) {
-
-        let materialS = arcLineSad.material; // Sad Mouth Material
-        let materialH = arcLineHappy.material; // Happy Mouth Material
-        let materialC = arcLineConfused.material; // Confused Mouth Material
-        let materialb = arcLineHappyB.material;
-        let materialb2 = b2.material;
-        let materialw2 = w2.material;
-        let materiald = sphereD.material;
-        let materialu = sphereU.material;
-        let materialt = sphereT.material;
-        let materialf = sphereF.material;
-        let materialTear = tear.material;
-
-
-
-        switch (radioButtonValue) {
-            case 'sad':
-                materialS.alpha = 1;
-                materialH.alpha = 0;
-                materialC.alpha = 0;
-                materialb.alpha = 0;
-                materialb2.alpha = 0;
-                materialw2.alpha = 0;
-                materiald.alpha = 0;
-                materialu.alpha = 0;
-                materialt.alpha = 1;
-                materialf.alpha = 1;
-
-up = -3;
-              
-                eye1.position.y = 1+up;
-                eye2.position.y = 1+up;
-                eye1.position.x = -3.5;
-                eye2.position.x = 3.5;
-                eye3.position.y = 2+up;
-                eye4.position.y = 2+up;
-                arcLineSad.position.y = -1+up;
-                sphereT.position.y = -4+up;
-                sphereF.position.y = -4+up;
-                arcLineSad.position.x = 1;
-                sphereT.position.x = -3;
-                sphereF.position.x = 5;
-                materialTear.alpha = 1;
-                face.position.y = -2;
-                face.material.diffuseColor = yellow;
-
-
-                break;
-            case 'happy':
-                materialS.alpha = 0;
-                materialH.alpha = 1;
-                materialC.alpha = 0;
-                materialb.alpha = 0;
-                materialb2.alpha = 0;
-                materialw2.alpha = 0;
-                materiald.alpha = 0;
-                materialu.alpha = 0;
-                materialt.alpha = 1;
-                materialf.alpha = 1;
-                eye1.position.y = 2.8;
-                eye2.position.y = 2.8;
-                eye1.position.x = -3.5;
-                eye2.position.x = 3.5;
-                eye3.position.y = 3;
-                eye4.position.y = 3;
-                sphereT.position.y = -3;
-                sphereF.position.y = -3;
-                materialTear.alpha = 0;
-                arcLineSad.position.x = 0;
-                sphereT.position.x = -4;
-                sphereF.position.x = 4;
-                face.position.y = 0;
-                face.material.diffuseColor = yellow;
-                break;
-
-            case 'confused':
-                materialS.alpha = 0;
-                materialC.alpha = 1;
-                materialH.alpha = 0;
-                materialb.alpha = 1;
-                materialb2.alpha = 1;
-                materialw2.alpha = 1;
-                materiald.alpha = 1;
-                materialu.alpha = 1;
-                materialt.alpha = 0;
-                materialf.alpha = 0;
-                materialTear.alpha = 0;
-up = 2;
-                eye1.position.y = 2.8+up;
-                eye2.position.y = 2.8+up;
-                eye3.position.y = 3+up;
-                eye4.position.y = 3+up;
-                eye1.position.x = -3.5;
-                eye2.position.x = 3.5;
-                arcLineHappyB.position.y = 0+up;
-                sphereW.position.y = 7+up;
-                sphereB.position.y = 7+up;
-                brow2.position.y = 2+up;
-                b2.position.y = 9+up;
-                w2.position.y = 9+up;
-                arcLineSad.position.x = 0;
-                sphereT.position.x = -4;
-                sphereF.position.x = 4;
-                face.position.y = 1;
-                face.material.diffuseColor = yellow;
-                break;
-
-            case 'angry':
-                materialS.alpha = 1;
-                materialH.alpha = 0;
-                materialC.alpha = 0;
-                materialb.alpha = 1;
-                materialb2.alpha = 1;
-                materialw2.alpha = 1;
-                materiald.alpha = 0;
-                materialu.alpha = 0;
-                materialt.alpha = 1;
-                materialf.alpha = 1;
-  up = -1;              
-                eye1.position.y = 0.5+up;
-                eye2.position.y = 0.5+up;
-                eye3.position.y = 0.7+up;
-                eye1.position.x = -3.5;
-                eye2.position.x = 3.5;
-                eye4.position.y = 0.7+up;
-                eye1.position.x = -3;
-                eye2.position.x = 3;
-                arcLineSad.position.y = -2+up;
-                sphereT.position.y = -5+up;
-                sphereF.position.y = -5+up;
-                arcLineSad.position.x = 0;
-                sphereT.position.x = -4;
-                sphereF.position.x = 4;
-                arcLineHappyB.position.y = -3.3+up;
-                sphereW.position.y = 3.7+up;
-                sphereB.position.y = 3.7+up;
-                brow2.position.y = -3.3+up;
-                b2.position.y = 3.7+up;
-                w2.position.y = 3.7+up;
-                materialTear.alpha = 0;
-                face.position.y = -1;
-                face.material.diffuseColor = red;
-            default:
-                console.log('Invalid radio button value');
-                break;
         }
+
+@media (max-width: 500px) {
+    .button {
+        height: 70px; /* Adjust height on smaller screens */
+        font-size: 0.7em; /* Reduce font size for better fit */
+
     }
 
+        .button img {
+            margin-top: 6px;
+margin-bottom: 4px;
+         }
 
 
-    //GUI box with controls 
-    var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
-    var selectBox = new BABYLON.GUI.SelectionPanel("sp");
-    selectBox.width = 0.2;
-    selectBox.height = 0.3;
-    selectBox.scaleY = 1.5;
-    selectBox.scaleX = 1.5;
-    selectBox.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
-    selectBox.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
 
-    advancedTexture.addControl(selectBox);
+    </style>
 
-    var transformGroup = new BABYLON.GUI.RadioGroup("Emotion");
-    transformGroup.addRadio("happy", function () { toPlace("happy"); },true);
-    transformGroup.addRadio("sad", function () { toPlace("sad"); });
-    transformGroup.addRadio("confused", function () { toPlace("confused"); });
-    transformGroup.addRadio("angry", function () { toPlace("angry"); });
-
-    selectBox.addGroup(transformGroup);
-
-    return scene;
-};
-                window.initFunction = async function() {
-                    
-                    
-                    
-                    var asyncEngineCreation = async function() {
-                        try {
-                        return createDefaultEngine();
-                        } catch(e) {
-                        console.log("the available createEngine function failed. Creating the default engine instead");
-                        return createDefaultEngine();
-                        }
-                    }
-
-                    window.engine = await asyncEngineCreation();
-        if (!engine) throw 'engine should not be null.';
-        startRenderLoop(engine, canvas);
-        window.scene = createScene();};
-        initFunction().then(() => {sceneToRender = scene                    
-        });
-
-        // Resize
-        window.addEventListener("resize", function () {
-            engine.resize();
-        });
-    </script>
-</body>
-</html>
+</head>
+<body>
+        <body style="margin: 0; padding: 0;">
+            <div class="button-container">
+                <a href="https://example.com/page1" class="button" style="background-color: #4e9984;" target="_parent">
+                    <img src="accomodations.png" alt="Accomodations">
+                    <span>Accomodations</span>
+                </a>
+                <a href="https://example.com/page2" class="button" style="background-color: #e48566;" target="_parent">
+                    <img src="books.png" alt="Bookshelf">
+                    <span>Bookshelf</span>
+                </a>
+                <a href="https://example.com/page3" class="button" style="background-color: #b357c9;" target="_parent">
+                    <img src="chat.png" alt="Chat">
+                    <span>Chat</span>
+                </a>
+                <a href="https://example.com/page4" class="button" style="background-color: #d0af11;" target="_parent">
+                    <img src="events.png" alt="Events">
+                    <span>Events</span>
+                </a>
+                <a href="https://example.com/page5" class="button" style="background-color: #686f89;" target="_parent">
+                    <img src="playlists.png" alt="Playlists">
+                    <span>Playlists</span>
+                </a>
+                <a href="https://example.com/page6" class="button" style="background-color: #5795b3;" target="_parent">
+                    <img src="talks.png" alt="Neuro Talks">
+                    <span>Neuro Talks</span>
+                </a>
+            </div>
+        </body>
+        </html>
