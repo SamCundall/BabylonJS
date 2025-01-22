@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-FAB Collaboration</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #f0f0f0;
+    }
+
+    .fab {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      background-color: #6200ea;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      user-select: none;
+      transition: transform 0.2s ease, width 0.2s ease;
+    }
+
+    .fab:hover {
+      transform: scale(1.1);
+    }
+
+    .fab-options {
+      position: absolute;
+      display: none;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      background-color: white;
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      z-index: 9;
+    }
+
+    .fab-options.show {
+      display: flex;
+    }
+
+    .input-row input {
+      width: 200px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+
+    .emoji-row {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-start;
+      margin-top: 10px;
+    }
+
+    .emoji {
+      width: 40px;
+      height: 40px;
+      font-size: 20px;
+      background-color: #fff;
+      color: #6200ea;
+      border: 1px solid #6200ea;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    #main-content {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      font-size: 18px;
+      background-color: white;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      max-width: 300px;
+    }
+
+    #message-stack div {
+      margin-bottom: 10px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      color: black;
+    }
+  </style>
+</head>
+<body>
+  <div id="main-content">
+    <strong>Messages:</strong>
+    <div id="message-stack"></div>
+  </div>
+
+  <!-- Example FAB for the first user -->
+  <div class="fab" id="user1-fab" style="background-color: #ff5722;">U1</div>
+  <div class="fab-options" id="user1-fab-options">
+    <div class="input-row">
+      <input type="text" id="user1-input" placeholder="Type a message..." />
+    </div>
+    <div class="emoji-row">
+      <div class="emoji">😊</div>
+      <div class="emoji">👍</div>
+      <div class="emoji">❤️</div>
+      <div class="emoji">🎉</div>
+      <div class="emoji">😂</div>
+    </div>
+  </div>
+
+  <script>
+    const mainContent = document.getElementById('main-content');
+    const messageStack = document.getElementById('message-stack');
+    const fabOptions = document.getElementById('user1-fab-options');
+    const fabInput = document.getElementById('user1-input');
+    const userFab = document.getElementById('user1-fab');
+
+    let isDragging = false;
+
+    // Dragging functionality
+    userFab.addEventListener('mousedown', (event) => startDrag(event, userFab));
+    userFab.addEventListener('touchstart', (event) => startDrag(event, userFab), { passive: false });
+
+    function startDrag(event, fab) {
+      isDragging = true;
+
+      const initialX = event.touches ? event.touches[0].clientX : event.clientX;
+      const initialY = event.touches ? event.touches[0].clientY : event.clientY;
+      const shiftX = initialX - fab.getBoundingClientRect().left;
+      const shiftY = initialY - fab.getBoundingClientRect().top;
+
+      function moveAt(pageX, pageY) {
+        fab.style.left = `${pageX - shiftX}px`;
+        fab.style.top = `${pageY - shiftY}px`;
+      }
+
+      function onMove(event) {
+        const pageX = event.touches ? event.touches[0].pageX : event.pageX;
+        const pageY = event.touches ? event.touches[0].pageY : event.pageY;
+        moveAt(pageX, pageY);
+      }
+
+      function stopDrag() {
+        isDragging = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('mouseup', stopDrag);
+        document.removeEventListener('touchend', stopDrag);
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('mouseup', stopDrag);
+      document.addEventListener('touchend', stopDrag);
+    }
+
+    userFab.addEventListener('dragstart', () => false);
+
+    // Show options and dynamically adjust flyout position
+    userFab.addEventListener('click', () => {
+      const rect = userFab.getBoundingClientRect();
+      fabOptions.style.left = `${Math.min(rect.left, window.innerWidth - fabOptions.offsetWidth)}px`;
+      fabOptions.style.top = `${Math.min(rect.top - fabOptions.offsetHeight, window.innerHeight - fabOptions.offsetHeight)}px`;
+      fabOptions.classList.toggle('show');
+      if (fabOptions.classList.contains('show')) {
+        fabInput.focus();
+      }
+    });
+
+    // Handle input
+    fabInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        const message = fabInput.value.trim();
+        if (message) {
+          addMessage(message, '#ff5722');
+          fabInput.value = '';
+          fabOptions.classList.remove('show');
+        }
+      }
+    });
+
+    // Handle emoji selection
+    fabOptions.querySelector('.emoji-row').addEventListener('click', (event) => {
+      if (event.target.classList.contains('emoji')) {
+        const emoji = event.target.textContent;
+        addMessage(emoji, '#ff5722');
+        fabOptions.classList.remove('show');
+      }
+    });
+
+    function addMessage(content, color) {
+      const div = document.createElement('div');
+      div.textContent = content;
+      div.style.backgroundColor = color + '30'; // Pastel version of the FAB color
+      messageStack.appendChild(div);
+    }
+  </script>
+</body>
+</html>
