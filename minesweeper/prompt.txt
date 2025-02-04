@@ -1,0 +1,1 @@
+can you make me a minesweeper game in html and then add a counter to the flag squares that says how many bomb squares touch that grey square when the player clicks that square
