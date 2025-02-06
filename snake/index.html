@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #000;
+            flex-direction: column;
+        }
+        canvas {
+            border: 1px solid #fff;
+        }
+        #playAgain {
+            display: none;
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #scoreBoard {
+            display: none;
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #scoreList {
+            display: none;
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <button id="playAgain">Play Again</button>
+    <div id="scoreBoard">
+        <input type="text" id="playerName" placeholder="Enter your name">
+        <button id="submitScore">Submit Score</button>
+    </div>
+    <div id="scoreList"></div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const box = 20;
+        let snake = [];
+        snake[0] = {
+            x: 9 * box,
+            y: 10 * box
+        };
+        let food = {
+            x: Math.floor(Math.random() * 19 + 1) * box,
+            y: Math.floor(Math.random() * 19 + 1) * box
+        };
+        let score = 0;
+        let d;
+        let game;
+        let speed = 300;
+
+        document.addEventListener('keydown', direction);
+        document.getElementById('playAgain').addEventListener('click', resetGame);
+        document.getElementById('submitScore').addEventListener('click', submitScore);
+
+        function direction(event) {
+            if (event.keyCode == 37 && d != 'RIGHT') {
+                d = 'LEFT';
+            } else if (event.keyCode == 38 && d != 'DOWN') {
+                d = 'UP';
+            } else if (event.keyCode == 39 && d != 'LEFT') {
+                d = 'RIGHT';
+            } else if (event.keyCode == 40 && d != 'UP') {
+                d = 'DOWN';
+            }
+        }
+
+        function collision(head, array) {
+            for (let i = 0; i < array.length; i++) {
+                if (head.x == array[i].x && head.y == array[i].y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < snake.length; i++) {
+                ctx.fillStyle = (i == 0) ? 'green' : 'white';
+                ctx.fillRect(snake[i].x, snake[i].y, box, box);
+
+                ctx.strokeStyle = 'red';
+                ctx.strokeRect(snake[i].x, snake[i].y, box, box);
+            }
+
+            ctx.fillStyle = 'red';
+            ctx.fillRect(food.x, food.y, box, box);
+
+            let snakeX = snake[0].x;
+            let snakeY = snake[0].y;
+
+            if (d == 'LEFT') snakeX -= box;
+            if (d == 'UP') snakeY -= box;
+            if (d == 'RIGHT') snakeX += box;
+            if (d == 'DOWN') snakeY += box;
+
+            if (snakeX == food.x && snakeY == food.y) {
+                score++;
+                food = {
+                    x: Math.floor(Math.random() * 19 + 1) * box,
+                    y: Math.floor(Math.random() * 19 + 1) * box
+                };
+                clearInterval(game);
+                speed -= 10; // Increase speed
+                game = setInterval(draw, speed);
+            } else {
+                snake.pop();
+            }
+
+            let newHead = {
+                x: snakeX,
+                y: snakeY
+            };
+
+            if (snakeX < 0 || snakeY < 0 || snakeX >= canvas.width || snakeY >= canvas.height || collision(newHead, snake)) {
+                clearInterval(game);
+                ctx.fillStyle = 'white';
+                ctx.font = '45px Changa one';
+                ctx.fillText('You Lost', canvas.width / 2 - 100, canvas.height / 2);
+                document.getElementById('playAgain').style.display = 'block';
+                document.getElementById('scoreBoard').style.display = 'block';
+                fetchScores();
+                return;
+            }
+
+            snake.unshift(newHead);
+
+            ctx.fillStyle = 'white';
+            ctx.font = '45px Changa one';
+            ctx.fillText(score, 2 * box, 1.6 * box);
+        }
+
+        function resetGame() {
+            snake = [];
+            snake[0] = {
+                x: 9 * box,
+                y: 10 * box
+            };
+            food = {
+                x: Math.floor(Math.random() * 19 + 1) * box,
+                y: Math.floor(Math.random() * 19 + 1) * box
+            };
+            score = 0;
+            d = null;
+            speed = 300;
+            document.getElementById('playAgain').style.display = 'none';
+            document.getElementById('scoreBoard').style.display = 'none';
+            document.getElementById('scoreList').style.display = 'none';
+            clearInterval(game);
+            game = setInterval(draw, speed);
+        }
+
+        function submitScore() {
+            const playerName = document.getElementById('playerName').value;
+            if (playerName) {
+                fetch('/submit-score', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: playerName, score: score })
+                }).then(response => response.json())
+                  .then(data => {
+                      alert('Score submitted!');
+                      resetGame();
+                  });
+            } else {
+                alert('Please enter your name');
+            }
+        }
+
+        function fetchScores() {
+            fetch('/scores')
+                .then(response => response.json())
+                .then(scores => {
+                    const scoreList = document.getElementById('scoreList');
+                    scoreList.innerHTML = '<h3>Scoreboard</h3>';
+                    scores.forEach(score => {
+                        const scoreItem = document.createElement('div');
+                        scoreItem.textContent = `${score.name}: ${score.score}`;
+                        scoreList.appendChild(scoreItem);
+                    });
+                    scoreList.style.display = 'block';
+                });
+        }
+
+        game = setInterval(draw, speed);
+    </script>
+</body>
+</html>
