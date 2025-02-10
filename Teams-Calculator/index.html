@@ -1,29 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Simple Calculator</title>
+    <title>Teams Calculator</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
             margin-top: 50px;
+            background-color: #333;
+            color: #fff;
         }
         input[type="text"] {
             width: 200px;
             height: 30px;
             font-size: 20px;
             text-align: right;
+            background-color: #555;
+            color: #fff;
+            border: none;
+            padding: 5px;
         }
         button {
             width: 50px;
             height: 50px;
             font-size: 20px;
             margin: 5px;
+            background-color: #444;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #666;
         }
     </style>
 </head>
 <body>
-    <h1>Simple Calculator</h1>
+    <h1>Teams Calculator</h1>
     <input type="text" id="display" disabled>
     <br>
     <button onclick="clearDisplay()">C</button>
