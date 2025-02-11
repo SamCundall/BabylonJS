@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Button Row</title>
+    <style>
+        body {
+            display: flex;
+            margin: 0;
+            padding: 0;
+        }
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+            margin: 0px;
+            position: fixed; /* Fix the position to the left side */
+            left: 0; /* Align to the left */
+            top: 0; /* Start from the top */
+            width: 150px; /* Set a fixed width for the buttons */
+        }
+        .button {
+            width: 100%; /* Ensure buttons take full width of container */
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: top;
+            align-items: center;
+            text-decoration: none;
+            font-family: Arial, sans-serif;
+            font-size: 0.8em;
+            color: white;
+            border-radius: 10px;
+            border: none;
+            text-align: center;
+            cursor: pointer;
+            overflow: hidden;
+        }
+        .button span {
+            white-space: nowrap; /* Prevents text wrapping */
+            overflow: hidden; /* Hides overflowing text */
+            text-overflow: ellipsis; /* Adds ellipsis for truncated text */
+            max-width: 80%; /* Ensures the text doesn't exceed button width */
+            display: inline-block; /* Required for text-overflow to work */
+        }
+        .button img {
+            width: 40px;
+            height: 40px;
+            margin-top: 20px;
+            margin-bottom: 5px;
+        }
+        @media (max-width: 500px) {
+            .button {
+                height: 70px; /* Adjust height on smaller screens */
+                font-size: 0.7em; /* Reduce font size for better fit */
+            }
+            .button img {
+                margin-top: 6px;
+                margin-bottom: 4px;
+            }
+        }
+        .iframe-container {
+            margin-left: 150px; /* Leave space for the button container */
+            width: calc(100% - 150px); /* Adjust width to fill remaining space */
+            height: 100vh; /* Full height of the viewport */
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="button-container">
+        <a href="https://microsoft.sharepoint.com/teams/DisabilityInclusionPlaybook/SitePages/Accommodations-and-benefits.aspx" class="button" style="background-color: #4e9984;" target="content-frame">
+            <img src="accomodations.png" alt="Microsoft accomodations site">
+            <span>Explore Accomodations</span>
+        </a>
+        <a href="https://microsoft.sharepoint-df.com/sites/NeurodiversityCAP/SitePages/Bookshelf.aspx" class="button" style="background-color: #e48566;" target="content-frame">
+            <img src="books.png" alt="CAP neurodiverse bookshelf">
+            <span>Bookshelf</span>
+        </a>
+        <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbRwq6NO31P8dHg-rMOrrkHEdUNFBHRDJON0ZDSlAyVDlLQzRFNEZaOThYSS4u" class="button" style="background-color: #b357c9;" target="content-frame">
+            <img src="chat.png" alt="Chat join request">
+            <span>Join the Chat</span>
+        </a>
+        <a href="https://microsoft.sharepoint-df.com/sites/NeurodiversityCAP/_layouts/15/Events.aspx" class="button" style="background-color: #d0af11;" target="content-frame">
+            <img src="events.png" alt="CAP neurodiverse events">
+            <span>Discover Events</span>
+        </a>
+        <a href="https://microsoft.sharepoint-df.com/sites/NeurodiversityCAP/SitePages/SpotifyPlaylists.aspx" class="button" style="background-color: #686f89;" target="content-frame">
+            <img src="playlists.png" alt="CAP neurodiverse playlists">
+            <span>Playlists</span>
+        </a>
+        <a href="https://microsoft.sharepoint-df.com/sites/NeurodiversityCAP/SitePages/Talks-&-Presentations.aspx" class="button" style="background-color: #5795b3;" target="content-frame">
+            <img src="talks.png" alt="Neuro talks">
+            <span>Neuro Talks</span>
+        </a>
+    </div>
+    <div class="iframe-container">
+        <iframe name="content-frame"></iframe>
+    </div>
+</body>
+</html>
