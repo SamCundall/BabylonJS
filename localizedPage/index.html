@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Switcher</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .content {
+            display: none;
+        }
+        .content.active {
+            display: block;
+        }
+        .switcher {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to the Location Switcher</h1>
+    <div class="switcher">
+        <label for="location">Choose your location:</label>
+        <select id="location" onchange="switchLocation()">
+            <option value="alaska">alaska</option>
+            <option value="london">london</option>
+            <option value="prague">Prague</option>
+            <option value="bangalore">Bangalore</option>
+        </select>
+    </div>
+
+    <div id="alaska" class="content">
+        <h2>alaska</h2>
+        <p id="alaska-weather">Weather: Loading...</p>
+        <p id="alaska-time">Local Time: Loading...</p>
+    </div>
+
+    <div id="london" class="content">
+        <h2>london</h2>
+        <p id="london-weather">Weather: Loading...</p>
+        <p id="london-time">Local Time: Loading...</p>
+    </div>
+
+    <div id="prague" class="content">
+        <h2>Prague</h2>
+        <p id="prague-weather">Weather: Loading...</p>
+        <p id="prague-time">Local Time: Loading...</p>
+    </div>
+
+    <div id="bangalore" class="content">
+        <h2>Bangalore</h2>
+        <p id="bangalore-weather">Weather: Loading...</p>
+        <p id="bangalore-time">Local Time: Loading...</p>
+    </div>
+
+    <script>
+        const apiKey = 'b1b15e88fa797225412429c1c50c122a1'; // Replace with your weather API key
+
+  function switchLocation() {
+    var location = document.getElementById('location').value;
+    var contents = document.getElementsByClassName('content');
+    for (var i = 0; i < contents.length; i++) {
+        contents[i].classList.remove('active');
+    }
+    document.getElementById(location).classList.add('active');
+    fetchWeather(location);
+    clearInterval(window.timeInterval); // Clear any existing interval
+    updateTime(location);
+}
+
+        function fetchWeather(location) {
+            const weatherElement = document.getElementById(`${location}-weather`);
+            fetch(`https://api.openweathermap.org/data/2.5/weather?q=${location}&appid=${apiKey}`)
+                .then(response => response.json())
+                .then(data => {
+                    const weather = data.weather[0].description;
+                    weatherElement.textContent = `Weather: ${weather}`;
+                })
+                .catch(error => {
+                    weatherElement.textContent = 'Weather: Unable to fetch data';
+                });
+        }
+
+function updateTime(location) {
+    const timeElement = document.getElementById(`${location}-time`);
+    const timeZones = {
+        alaska: 'America/Anchorage',
+        london: 'Europe/London',
+        prague: 'Europe/Prague',
+        bangalore: 'Asia/Kolkata'
+    };
+    window.timeInterval = setInterval(() => {
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: timeZones[location],
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric',
+            hour12: true
+        });
+        timeElement.textContent = `Local Time: ${formatter.format(now)}`;
+    }, 1000);
+}
+
+// Set default location
+document.getElementById('alaska').classList.add('active');
+fetchWeather('alaska');
+updateTime('alaska');
+    </script>
+</body>
+</html>

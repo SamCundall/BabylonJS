@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Switcher</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .content {
+            display: none;
+        }
+        .content.active {
+            display: block;
+        }
+        .switcher {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to the Location Switcher</h1>
+    <div class="switcher">
+        <label for="location">Choose your location:</label>
+        <select id="location" onchange="switchLocation()">
+            <option value="usa">USA</option>
+            <option value="uk">UK</option>
+            <option value="prague">Prague</option>
+            <option value="bangalore">Bangalore</option>
+        </select>
+    </div>
+
+    <div id="usa" class="content">
+        <h2>USA</h2>
+        <p>Language: English</p>
+        <p>Local Weather: Sunny</p>
+        <p>Local Time: 10:00 AM</p>
+        <img src="usa_image.jpg" alt="USA Image">
+        <audio controls>
+            <source src="usa_music.mp3" type="audio/mp3">
+            Your browser does not support the audio element.
+        </audio>
+        <video controls>
+            <source src="usa_video.mp4" type="video/mp4">
+            Your browser does not support the video element.
+        </video>
+    </div>
+
+    <div id="uk" class="content">
+        <h2>UK</h2>
+        <p>Language: English</p>
+        <p>Local Weather: Cloudy</p>
+        <p>Local Time: 3:00 PM</p>
+        <img src="uk_image.jpg" alt="UK Image">
+        <audio controls>
+            <source src="uk_music.mp3" type="audio/mp3">
+            Your browser does not support the audio element.
+        </audio>
+        <video controls>
+            <source src="uk_video.mp4" type="video/mp4">
+            Your browser does not support the video element.
+        </video>
+    </div>
+
+    <div id="prague" class="content">
+        <h2>Prague</h2>
+        <p>Language: Czech</p>
+        <p>Local Weather: Snowy</p>
+        <p>Local Time: 4:00 PM</p>
+        <img src="prague_image.jpg" alt="Prague Image">
+        <audio controls>
+            <source src="prague_music.mp3" type="audio/mp3">
+            Your browser does not support the audio element.
+        </audio>
+        <video controls>
+            <source src="prague_video.mp4" type="video/mp4">
+            Your browser does not support the video element.
+        </video>
+    </div>
+
+    <div id="bangalore" class="content">
+        <h2>Bangalore</h2>
+        <p>Language: Kannada</p>
+        <p>Local Weather: Rainy</p>
+        <p>Local Time: 9:30 PM</p>
+        <img src="bangalore_image.jpg" alt="Bangalore Image">
+        <audio controls>
+            <source src="bangalore_music.mp3" type="audio/mp3">
+            Your browser does not support the audio element.
+        </audio>
+        <video controls>
+            <source src="bangalore_video.mp4" type="video/mp4">
+            Your browser does not support the video element.
+        </video>
+    </div>
+
+    <script>
+        function switchLocation() {
+            var location = document.getElementById('location').value;
+            var contents = document.getElementsByClassName('content');
+            for (var i = 0; i < contents.length; i++) {
+                contents[i].classList.remove('active');
+            }
+            document.getElementById(location).classList.add('active');
+        }
+        // Set default location
+        document.getElementById('usa').classList.add('active');
+    </script>
+</body>
+</html>
