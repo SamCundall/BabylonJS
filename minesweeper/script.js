@@ -39,11 +39,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cell.classList.contains('revealed')) return;
         cell.classList.add('revealed');
         if (cell.classList.contains('mine')) {
-            alert('Game Over!');
+            cell.style.backgroundColor = 'red';
+            cell.textContent = '💣';
+            displayGameOver();
             revealAllMines();
         } else {
             const mineCount = countAdjacentMines(cell);
-            cell.textContent = mineCount;
+            cell.textContent = mineCount === 0 ? '⛳' : mineCount;
+            if (mineCount > 0) {
+                cell.style.fontWeight = 'bold';
+                switch (mineCount) {
+                    case 1:
+                        cell.style.color = 'blue';
+                        break;
+                    case 2:
+                        cell.style.color = 'green';
+                        break;
+                    case 3:
+                        cell.style.color = 'yellow';
+                        break;
+                    case 4:
+                        cell.style.color = 'red';
+                        break;
+                    case 5:
+                        cell.style.color = 'maroon';
+                        break;
+                }
+            }
             if (mineCount === 0) {
                 revealAdjacentCells(cell);
             }
@@ -93,8 +115,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Reveal all mines
     function revealAllMines() {
         mines.forEach(index => {
-            cells[index].classList.add('revealed');
+            const mineCell = cells[index];
+            mineCell.classList.add('revealed');
+            mineCell.textContent = '💣';
         });
+    }
+
+    // Display game over message
+    function displayGameOver() {
+        const gameOverMessage = document.createElement('div');
+        gameOverMessage.id = 'game-over';
+        gameOverMessage.textContent = 'Game Over!';
+        gameOverMessage.style.textAlign = 'center';
+        gameOverMessage.style.marginTop = '10px';
+        grid.appendChild(gameOverMessage);
+
+        const playAgainButton = document.createElement('button');
+        playAgainButton.textContent = 'Play Again';
+        playAgainButton.style.display = 'block';
+        playAgainButton.style.margin = '10px auto';
+        playAgainButton.addEventListener('click', () => {
+            location.reload();
+        });
+        grid.appendChild(playAgainButton);
     }
 
     createGrid();
