@@ -48,6 +48,10 @@
             background-color: #000000;
             border-radius: 10px; /* Added rounded corners */
         }
+        .monochrome {
+            background-color: #555 !important;
+            color: #aaa !important;
+        }
     </style>
 </head>
 <body>
@@ -79,28 +83,110 @@
      <button onclick="appendToDisplay(' - ')">➖</button>
   
     <button onclick="calculateResult()">🟰</button>
+    <br>
+    <button onclick="appendToDisplay('🥕'); disablePlusMinus()">🥕</button>
 </div>
-    <script>
-        function clearDisplay() {
-            document.getElementById('display').value = '';
-        }
+  
+  <script>
+    function clearDisplay() {
+        document.getElementById('display').value = '';
+        enablePlusMinus(); // Enable buttons when display is cleared
+    }
 
-        function appendToDisplay(value) {
-            var display = document.getElementById('display');
-            if (value === '*') {
-                display.value += ' x ';
-            } else if (value === '/') {
-                display.value += ' ÷ ';
-            } else {
-                display.value += value;
+    function appendToDisplay(value) {
+        var display = document.getElementById('display');
+        if (value === '*') {
+            display.value += ' x ';
+        } else if (value === '/') {
+            display.value += ' ÷ ';
+        } else {
+            display.value += value;
+        }
+    }
+
+    function calculateResult() {
+        var display = document.getElementById('display');
+        var expression = display.value.replace(/x/g, '*').replace(/÷/g, '/');
+        
+        if (expression === '🥕 * 2') {
+            display.value = 'a carrot twice the size';
+        } else if (expression === '🥕 / 2') {
+            display.value = 'a carrot cut in half';
+        } else {
+            try {
+                display.value = eval(expression);
+            } catch (e) {
+                display.value = 'Error';
             }
         }
+    }
 
-        function calculateResult() {
-            var display = document.getElementById('display');
-            display.value = display.value.replace(/x/g, '*').replace(/÷/g, '/');
-            display.value = eval(display.value);
-        }
-    </script>
+    function disablePlusMinus() {
+        var plusButton = document.querySelector('button[onclick*="appendToDisplay(\' + \')"]');
+        var minusButton = document.querySelector('button[onclick*="appendToDisplay(\' - \')"]');
+        var seButton= document.querySelector('button[onclick*="appendToDisplay(\'7\')"]');
+    var eiButton = document.querySelector('button[onclick*="appendToDisplay(\'8\')"]');
+    var niButton = document.querySelector('button[onclick*="appendToDisplay(\'9\')"]');
+    var foButton = document.querySelector('button[onclick*="appendToDisplay(\'4\')"]');
+    var fiButton = document.querySelector('button[onclick*="appendToDisplay(\'5\')"]');
+    var siButton = document.querySelector('button[onclick*="appendToDisplay(\'6\')"]');
+    var onButton = document.querySelector('button[onclick*="appendToDisplay(\'1\')"]');
+    var thButton = document.querySelector('button[onclick*="appendToDisplay(\'3\')"]');
+        plusButton.disabled = true;
+        minusButton.disabled = true;
+        seButton.disabled = true;
+        eiButton.disabled = true;
+        niButton.disabled = true;
+        foButton.disabled = true;
+        fiButton.disabled = true;
+        siButton.disabled = true;
+        onButton.disabled = true;
+        thButton.disabled = true;
+        plusButton.classList.add('monochrome');
+        minusButton.classList.add('monochrome');
+        seButton.classList.add('monochrome');
+        eiButton.classList.add('monochrome');
+        niButton.classList.add('monochrome');
+        foButton.classList.add('monochrome');
+        fiButton.classList.add('monochrome');
+        siButton.classList.add('monochrome');
+        onButton.classList.add('monochrome');
+        thButton.classList.add('monochrome');
+    
+    }
+
+    function enablePlusMinus() {
+        var plusButton = document.querySelector('button[onclick*="appendToDisplay(\' + \')"]');
+        var minusButton = document.querySelector('button[onclick*="appendToDisplay(\' - \')"]');
+        var seButton= document.querySelector('button[onclick*="appendToDisplay(\'7\')"]');
+    var eiButton = document.querySelector('button[onclick*="appendToDisplay(\'8\')"]');
+    var niButton = document.querySelector('button[onclick*="appendToDisplay(\'9\')"]');
+    var foButton = document.querySelector('button[onclick*="appendToDisplay(\'4\')"]');
+    var fiButton = document.querySelector('button[onclick*="appendToDisplay(\'5\')"]');
+    var siButton = document.querySelector('button[onclick*="appendToDisplay(\'6\')"]');
+    var onButton = document.querySelector('button[onclick*="appendToDisplay(\'1\')"]');
+    var thButton = document.querySelector('button[onclick*="appendToDisplay(\'3\')"]');
+        plusButton.disabled = false;
+        minusButton.disabled = false;
+        seButton.disabled = false;
+        eiButton.disabled = false;
+        niButton.disabled = false;
+        foButton.disabled = false;
+        fiButton.disabled = false;
+        siButton.disabled = false;
+        onButton.disabled = false;
+        thButton.disabled = false;
+        plusButton.classList.remove('monochrome');
+        minusButton.classList.remove('monochrome');
+        seButton.classList.remove('monochrome');
+        eiButton.classList.remove('monochrome');
+        niButton.classList.remove('monochrome');
+        foButton.classList.remove('monochrome');
+        fiButton.classList.remove('monochrome');
+        siButton.classList.remove('monochrome');
+        onButton.classList.remove('monochrome');
+        thButton.classList.remove('monochrome');
+    }
+</script> 
 </body>
 </html>
