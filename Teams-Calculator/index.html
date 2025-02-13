@@ -78,7 +78,7 @@
     <button onclick="appendToDisplay(' + ')">➕</button>
     <br>
     <button onclick="clearDisplay()">🆑</button>
-   <button onclick="appendToDisplay('0')">🙂</button>
+   <button onclick="appendToDisplay('0')">0</button>
    
      <button onclick="appendToDisplay(' - ')">➖</button>
   
@@ -109,9 +109,9 @@
         var expression = display.value.replace(/x/g, '*').replace(/÷/g, '/');
         
         if (expression === '🥕 * 2') {
-            display.value = 'a carrot twice the size';
+            display.value = 'a 🥕 twice the size';
         } else if (expression === '🥕 / 2') {
-            display.value = 'a carrot cut in half';
+            display.value = 'a 🥕 cut in half';
         } else {
             try {
                 display.value = eval(expression);
@@ -132,6 +132,8 @@
     var siButton = document.querySelector('button[onclick*="appendToDisplay(\'6\')"]');
     var onButton = document.querySelector('button[onclick*="appendToDisplay(\'1\')"]');
     var thButton = document.querySelector('button[onclick*="appendToDisplay(\'3\')"]');
+var zeButton =
+document.querySelector('button[onclick*="appendToDisplay(\'0\')"]');
         plusButton.disabled = true;
         minusButton.disabled = true;
         seButton.disabled = true;
@@ -142,6 +144,7 @@
         siButton.disabled = true;
         onButton.disabled = true;
         thButton.disabled = true;
+zeButton.disabled = true;
         plusButton.classList.add('monochrome');
         minusButton.classList.add('monochrome');
         seButton.classList.add('monochrome');
@@ -152,7 +155,7 @@
         siButton.classList.add('monochrome');
         onButton.classList.add('monochrome');
         thButton.classList.add('monochrome');
-    
+ zeButton.classList.add('monochrome');   
     }
 
     function enablePlusMinus() {
@@ -166,6 +169,9 @@
     var siButton = document.querySelector('button[onclick*="appendToDisplay(\'6\')"]');
     var onButton = document.querySelector('button[onclick*="appendToDisplay(\'1\')"]');
     var thButton = document.querySelector('button[onclick*="appendToDisplay(\'3\')"]');
+var zeButton =
+document.querySelector('button[onclick*="appendToDisplay(\'0\')"]');
+
         plusButton.disabled = false;
         minusButton.disabled = false;
         seButton.disabled = false;
@@ -176,7 +182,7 @@
         siButton.disabled = false;
         onButton.disabled = false;
         thButton.disabled = false;
-        plusButton.classList.remove('monochrome');
+       zeButton.disabled = false; plusButton.classList.remove('monochrome');
         minusButton.classList.remove('monochrome');
         seButton.classList.remove('monochrome');
         eiButton.classList.remove('monochrome');
@@ -185,7 +191,7 @@
         fiButton.classList.remove('monochrome');
         siButton.classList.remove('monochrome');
         onButton.classList.remove('monochrome');
-        thButton.classList.remove('monochrome');
+        thButton.classList.remove('monochrome');zeButton.classList.remove('monochrome');
     }
 </script> 
 </body>
