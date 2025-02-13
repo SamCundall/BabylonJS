@@ -71,6 +71,18 @@
             height: 705px;
             border: 0px;
         }
+     .disclaimer-container {
+margin-left: 180px;
+            position: fixed; /* Fix the position to the left side */
+            left: 0; /* Align to the left */
+            bottom: 0; /* Start from the top */
+            
+        }
+        disclaimer {
+            width: 100%;
+            height: 40px;
+            border: 0px;
+        }
     </style>
 </head>
 <body>
@@ -95,13 +107,20 @@
             <img src="location.png" alt="Localized content">
             <span>Localized content</span>
         </a>
-        <a href="https://samcundall.github.io/BabylonJS/BGCKC-emojimaker/index.html" class="button" style="background-color:  #d0af11;" target="content-frame">
-            <img src="emoji.png" alt="Emoji makers">
-            <span>Emoji Maker</span>
+        <a href="https://genemoji-poc-d4b7apa0hxasbcdg.westus2-01.azurewebsites.net/index.html" class="button" style="background-color:  #d0af11;" target="content-frame">
+            <img src="emoji.png" alt="Gen emoji">
+            <span>Gen emoji*</span>
         </a>
     </div>
     <div class="iframe-container">
         <iframe name="content-frame" src="https://samcundall.github.io/BabylonJS/Teams-Calculator/index.html"></iframe>
     </div>
+   <div class="disclaimer-container">
+        <span>*Be culturally sensitive with prompts, results are not yet restricted or moderated, and are strictly Microsoft Confidential, do not share publicly. </span><br>
+<a href="https://microsoft.sharepoint.com/sites/globalreadiness/PublicDocuments/ImageReviews/Image%20Review%20Checklist.docx?d=w89f331c67f34432ca75f586a1f0e5d35&csf=1&web=1&e=allfVP" target="window">See this guide: Image Review Checklist.docx</a>
+
+</disclaimer>
+    </div>
 </body>
+
 </html>
