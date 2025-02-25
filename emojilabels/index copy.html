@@ -172,21 +172,12 @@
                     const bigint = parseInt(hex.slice(1), 16);
                     const r = (bigint >> 16) & 255;
                     const g = (bigint >> 8) & 255;
-                    const b = bigint & 255;
-                    return [r, g, b];
-                }
-
-                function adjustBrightness([r, g, b], factor) {
-                    factor = 2.5;
-                    return `rgb(${Math.round(r * factor)}, ${Math.round(g * factor)}, ${Math.round(b * factor)})`;
-                }
-
-                // Add event listener for the Save button
+ button
                 saveButton.addEventListener('click', () => {
                     searchEmoji(inputText.value);
                 });
 
-                //and the emoji when the clear button is clicked
+                // Clear the input field and the emoji when the clear button is clicked
                 clearButton.addEventListener('click', () => {
                     inputText.value = '';
                     emojiDiv.innerHTML = '';
