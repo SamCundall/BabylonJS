@@ -44,6 +44,7 @@
 </head>
 <body>
     <h1>Emoji Labeler</h1>
+    <h4>1. Describe an object, person, animal, sport<br>2. Select save<br>3. Select an image you like<br>4. Select the design to see it's keywords</h4>
     <input type="text" id="inputText" placeholder="Type something...">
     <button id="saveButton">Save</button>
     <button id="clearButton">Clear</button>
@@ -132,7 +133,7 @@
                 function showKeywords(term, keywords, container) {
                     const keywordList = document.createElement('div');
                     keywordList.className = 'keyword-list';
-                    keywordList.innerHTML = `<b>${term} Files</b><ul>${keywords.map(keyword => `<li>${keyword}</li>`).join('')}</ul>`;
+                    keywordList.innerHTML = `<b>${term} Keywords</b><ul>${keywords.map(keyword => `<li>${keyword}</li>`).join('')}</ul>`;
                     container.appendChild(keywordList);
                 }
 
