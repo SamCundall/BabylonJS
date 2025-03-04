@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Spinner</title>
+    <style>
+        #wheel {
+            width: 300px;
+            height: 300px;
+            border: 10px solid #ccc;
+            border-radius: 50%;
+            position: relative;
+            margin: 20px auto;
+        }
+        .task {
+            position: absolute;
+            width: 50%;
+            height: 50%;
+            transform-origin: 100% 100%;
+            text-align: right;
+            padding-right: 10px;
+            box-sizing: border-box;
+        }
+        #spinButton {
+            display: block;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Task Spinner</h1>
+    <input type="text" id="taskInput" placeholder="Enter a task">
+    <button onclick="addTask()">Add Task</button>
+    <div id="wheel"></div>
+    <button id="spinButton" onclick="spinWheel()">Spin</button>
+
+    <script>
+        let tasks = [];
+        let wheel = document.getElementById('wheel');
+
+        function addTask() {
+            let taskInput = document.getElementById('taskInput');
+            let task = taskInput.value;
+            if (task) {
+                tasks.push(task);
+                taskInput.value = '';
+                updateWheel();
+            }
+        }
+
+        function updateWheel() {
+            wheel.innerHTML = '';
+            let angle = 360 / tasks.length;
+            tasks.forEach((task, index) => {
+                let taskElement = document.createElement('div');
+                taskElement.className = 'task';
+                taskElement.style.transform = `rotate(${angle * index}deg)`;
+                taskElement.innerHTML = task;
+                wheel.appendChild(taskElement);
+            });
+        }
+
+        function spinWheel() {
+            let randomIndex = Math.floor(Math.random() * tasks.length);
+            let angle = 360 / tasks.length * randomIndex;
+            wheel.style.transition = 'transform 4s ease-out';
+            wheel.style.transform = `rotate(${360 * 5 + angle}deg)`;
+        }
+    </script>
+</body>
+</html>
