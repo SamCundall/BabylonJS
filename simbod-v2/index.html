@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimBod Mobile - Motion Tracking</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #000;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #video {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 120px;
+            height: 90px;
+            border: 2px solid #fff;
+            border-radius: 8px;
+            z-index: 10;
+            transform: scaleX(-1);
+            object-fit: cover;
+        }
+        
+        #canvas3d {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+        
+        .control-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 25px;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            touch-action: manipulation;
+        }
+        
+        .control-btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.7);
+        }
+        
+        .control-btn.active {
+            background: #007AFF;
+            color: white;
+        }
+        
+        #status {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            z-index: 10;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            z-index: 10;
+        }
+    </style>
+    
+    <!-- Babylon.js and MediaPipe -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.0.0/dist/pose-detection.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js"></script>
+</head>
+<body>
+    <div id="container">
+        <div class="loading" id="loading">Loading camera and pose detection...</div>
+        <!-- Note: 'playsinline' is not supported by Firefox and Firefox for Android -->
+        <video id="video" autoplay muted></video>
+        <canvas id="canvas3d"></canvas>
+        <div id="status">Initializing...</div>
+        <div id="controls">
+            <button class="control-btn" id="switchCamera">📷 Switch</button>
+            <button class="control-btn" id="toggleTracking">📍 Tracking</button>
+            <button class="control-btn" id="resetPose">🔄 Reset</button>
+        </div>
+    </div>
+
+    <script>
+        // Mobile-optimized configuration
+        const mobileConfig = {
+            poseScale: { x: -2.5, y: 2.0, z: 0.1 }, // Reduced X scale to bring trackers closer
+            trackingSensitivity: 0.6, // Lower sensitivity to show more tracking points including legs
+            trackingOrigin: { x: 0.5, y: 0.5, z: 0 },
+            positionOffset: { x: 0, y: -2.0, z: 0 } // Lowered by 0.5 (about a head height)
+        };
+
+        let engine, scene, camera, characterLimbs = {};
+        let video, poseDetector, currentStream;
+        let currentFacingMode = 'user'; // 'user' for front camera, 'environment' for back camera
+        let animationId;
+        let trackingBoxes = {}; // Add tracking boxes
+
+        // Initialize the application
+        async function initApp() {
+            try {
+                await setupCamera();
+                await setupPoseDetection();
+                setup3DScene();
+                startTracking();
+                updateStatus('Ready - Move around!');
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                console.error('Initialization error:', error);
+                updateStatus('Error: ' + error.message);
+            }
+        }
+
+        // Setup camera with mobile optimization
+        async function setupCamera() {
+            video = document.getElementById('video');
+            
+            const constraints = {
+                video: {
+                    facingMode: currentFacingMode,
+                    width: { ideal: 640, max: 1280 },
+                    height: { ideal: 480, max: 960 },
+                    frameRate: { ideal: 30, max: 30 }
+                },
+                audio: false
+            };
+
+            try {
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
+                }
+                
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                
+                return new Promise((resolve) => {
+                    video.onloadedmetadata = () => {
+                        resolve();
+                    };
+                });
+            } catch (error) {
+                throw new Error('Camera access denied or not available');
+            }
+        }
+
+        // Setup pose detection
+        async function setupPoseDetection() {
+            updateStatus('Loading pose detection...');
+            
+            try {
+                const detectorConfig = {
+                    runtime: 'mediapipe',
+                    solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404',
+                    modelType: 'lite' // Use lite model for better mobile performance
+                };
+                
+                poseDetector = await poseDetection.createDetector(
+                    poseDetection.SupportedModels.BlazePose, 
+                    detectorConfig
+                );
+                
+                updateStatus('Pose detection ready');
+            } catch (error) {
+                console.error('Pose detection setup error:', error);
+                throw new Error('Failed to load pose detection');
+            }
+        }
+
+        // Setup 3D scene
+        function setup3DScene() {
+            const canvas = document.getElementById('canvas3d');
+            engine = new BABYLON.Engine(canvas, true, { 
+                antialias: false, // Disable for better mobile performance
+                alpha: true,
+                preserveDrawingBuffer: false,
+                stencil: false
+            });
+            
+            scene = new BABYLON.Scene(engine);
+            
+            // Create camera with better positioning for mobile
+            camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 0, -6), scene);
+            camera.setTarget(new BABYLON.Vector3(0, -1, 0)); // Look slightly down to center the view
+            
+            // Create lights manually
+            const hemisphericLight = new BABYLON.HemisphericLight("hemisphericLight", new BABYLON.Vector3(0, 1, 0), scene);
+            hemisphericLight.intensity = 0.7;
+            
+            const directionalLight = new BABYLON.DirectionalLight("directionalLight", new BABYLON.Vector3(-1, -1, -1), scene);
+            directionalLight.intensity = 0.5;
+            
+            // Create character
+            createCharacter(scene);
+            
+            // Render loop
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+            
+            // Handle resize
+            window.addEventListener('resize', () => {
+                engine.resize();
+            });
+        }
+
+        // Create 3D character
+        function createCharacter(scene) {
+            const limbMaterial = new BABYLON.StandardMaterial("limbMaterial", scene);
+            limbMaterial.diffuseColor = new BABYLON.Color3(0.8, 0.6, 0.4);
+            limbMaterial.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+
+            function createLimb(name, height, parent = null) {
+                const limb = BABYLON.MeshBuilder.CreateCapsule(name, {
+                    height: height,
+                    radius: 0.08,
+                    radiusTop: 0.06,
+                    radiusBottom: 0.1
+                }, scene);
+                
+                limb.material = limbMaterial;
+                limb.rotationQuaternion = BABYLON.Quaternion.Identity();
+                
+                // Set pivot point to top of limb for proper rotation
+                limb.setPivotPoint(new BABYLON.Vector3(0, height / 2, 0));
+                
+                if (parent) {
+                    limb.parent = parent;
+                    // Position limb so it connects properly with pivot at top
+                    limb.position.y = -height; // Full height down since pivot is at top
+                }
+                
+                return limb;
+            }
+
+            // Create character limbs
+            characterLimbs.torso = createLimb("torso", 1.5);
+            
+            // Create head as a sphere (not capsule)
+            characterLimbs.head = BABYLON.MeshBuilder.CreateSphere("head", { diameter: 0.5 }, scene);
+            characterLimbs.head.material = limbMaterial;
+            characterLimbs.head.parent = characterLimbs.torso;
+            characterLimbs.head.position = new BABYLON.Vector3(0, 1.1, 0);
+            
+            characterLimbs.leftShoulder = createLimb("leftShoulder", 0.8, characterLimbs.torso);
+            characterLimbs.rightShoulder = createLimb("rightShoulder", 0.8, characterLimbs.torso);
+            characterLimbs.leftElbow = createLimb("leftElbow", 0.8, characterLimbs.leftShoulder);
+            characterLimbs.rightElbow = createLimb("rightElbow", 0.8, characterLimbs.rightShoulder);
+            
+            characterLimbs.leftHip = createLimb("leftHip", 1.0, characterLimbs.torso);
+            characterLimbs.rightHip = createLimb("rightHip", 1.0, characterLimbs.torso);
+            characterLimbs.leftKnee = createLimb("leftKnee", 1.0, characterLimbs.leftHip);
+            characterLimbs.rightKnee = createLimb("rightKnee", 1.0, characterLimbs.rightHip);
+            
+            // Position shoulders and hips
+            characterLimbs.leftShoulder.position = new BABYLON.Vector3(-0.3, 0.5, 0);
+            characterLimbs.rightShoulder.position = new BABYLON.Vector3(0.3, 0.5, 0);
+            characterLimbs.leftHip.position = new BABYLON.Vector3(-0.2, -0.7, 0);
+            characterLimbs.rightHip.position = new BABYLON.Vector3(0.2, -0.7, 0);
+            
+            // Create tracking boxes
+            createTrackingBoxes(scene);
+        }
+
+        // Create tracking boxes for pose visualization
+        function createTrackingBoxes(scene) {
+            const boxMaterial = new BABYLON.StandardMaterial("boxMaterial", scene);
+            boxMaterial.diffuseColor = new BABYLON.Color3(0, 1, 0); // Green color
+            boxMaterial.alpha = 0.8; // More opaque for better visibility
+
+            const legBoxMaterial = new BABYLON.StandardMaterial("legBoxMaterial", scene);
+            legBoxMaterial.diffuseColor = new BABYLON.Color3(1, 0, 1); // Magenta color for legs
+            legBoxMaterial.alpha = 0.8;
+
+            const keypointNames = [
+                'nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear',
+                'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
+                'left_wrist', 'right_wrist', 'left_hip', 'right_hip',
+                'left_knee', 'right_knee', 'left_ankle', 'right_ankle'
+            ];
+
+            keypointNames.forEach(name => {
+                const box = BABYLON.MeshBuilder.CreateBox(name + "_box", { size: 0.2 }, scene);
+                // Use different color for leg-related tracking boxes
+                const isLegPoint = name.includes('hip') || name.includes('knee') || name.includes('ankle');
+                box.material = isLegPoint ? legBoxMaterial : boxMaterial;
+                box.isVisible = false; // Start hidden so toggle button works correctly
+                // Start boxes at center screen for debugging
+                box.position = new BABYLON.Vector3(-0.5, -1.5, 0);
+                trackingBoxes[name] = box;
+            });
+            
+            // Enable tracking boxes by default and set button state
+            setTimeout(() => {
+                const button = document.getElementById('toggleTracking');
+                if (button) {
+                    // Show tracking boxes and mark button as active
+                    Object.values(trackingBoxes).forEach(box => {
+                        box.isVisible = true;
+                    });
+                    button.classList.add('active');
+                    updateStatus('Tracking boxes enabled');
+                }
+            }, 1000);
+        }
+
+        // Update tracking boxes positions
+        function updateTrackingBoxes(keypoints, scene) {
+            keypoints.forEach(kp => {
+                if (trackingBoxes[kp.name] && kp.score >= mobileConfig.trackingSensitivity) {
+                    // Apply same scaling as character
+                    const isArmKeypoint = kp.name.includes('shoulder') || 
+                                        kp.name.includes('elbow') || 
+                                        kp.name.includes('wrist');
+                    
+                    const isLegKeypoint = kp.name.includes('hip') || 
+                                        kp.name.includes('knee') || 
+                                        kp.name.includes('ankle');
+                    
+                    // Use same scaling for all body parts to align properly
+                    const xScale = mobileConfig.poseScale.x;
+                    
+                    trackingBoxes[kp.name].position = new BABYLON.Vector3(
+                        xScale * (kp.x - mobileConfig.trackingOrigin.x) + mobileConfig.positionOffset.x,
+                        -mobileConfig.poseScale.y * (kp.y - mobileConfig.trackingOrigin.y) + mobileConfig.positionOffset.y,
+                        -mobileConfig.poseScale.z * (kp.z - mobileConfig.trackingOrigin.z) + mobileConfig.positionOffset.z
+                    );
+                    trackingBoxes[kp.name].isVisible = true;
+                } else if (trackingBoxes[kp.name]) {
+                    trackingBoxes[kp.name].isVisible = false;
+                }
+            });
+        }
+
+        // Start pose tracking
+        function startTracking() {
+            async function detectPose() {
+                if (video.readyState === 4) {
+                    try {
+                        const poses = await poseDetector.estimatePoses(video, {
+                            maxPoses: 1,
+                            flipHorizontal: false
+                        });
+                        
+                        if (poses.length > 0) {
+                            mapPoseToCharacter(poses);
+                        }
+                    } catch (error) {
+                        console.error('Pose detection error:', error);
+                    }
+                }
+                
+                animationId = requestAnimationFrame(detectPose);
+            }
+            
+            detectPose();
+        }
+
+        // Map pose to character
+        function mapPoseToCharacter(poses) {
+            if (!poses || poses.length === 0 || !poses[0].keypoints3D) return;
+
+            const keypoints = poses[0].keypoints3D;
+            const keypointMap = {};
+            
+            // Create keypoint map with mobile-optimized scaling
+            keypoints.forEach(kp => {
+                if (kp.score >= mobileConfig.trackingSensitivity) {
+                    // Determine if this is an arm-related keypoint
+                    const isArmKeypoint = kp.name.includes('shoulder') || 
+                                        kp.name.includes('elbow') || 
+                                        kp.name.includes('wrist');
+                    
+                    // Determine if this is a leg-related keypoint
+                    const isLegKeypoint = kp.name.includes('hip') || 
+                                        kp.name.includes('knee') || 
+                                        kp.name.includes('ankle');
+                    
+                    // Use same X scaling for both arms and legs to align properly
+                    const xScale = mobileConfig.poseScale.x;
+                    
+                    keypointMap[kp.name] = {
+                        x: xScale * (kp.x - mobileConfig.trackingOrigin.x) + mobileConfig.positionOffset.x,
+                        y: -mobileConfig.poseScale.y * (kp.y - mobileConfig.trackingOrigin.y) + mobileConfig.positionOffset.y,
+                        z: -mobileConfig.poseScale.z * (kp.z - mobileConfig.trackingOrigin.z) + mobileConfig.positionOffset.z,
+                        score: kp.score
+                    };
+                }
+            });
+
+            updateCharacterFromPose(keypointMap);
+            
+            // Update tracking boxes (if visible)
+            updateTrackingBoxes(keypoints, scene);
+        }
+
+        // Update character from pose data
+        function updateCharacterFromPose(keypointMap) {
+            // Update torso position
+            if (keypointMap['left_hip'] && keypointMap['right_hip'] && characterLimbs.torso) {
+                const hipCenter = {
+                    x: (keypointMap['left_hip'].x + keypointMap['right_hip'].x) / 2,
+                    y: (keypointMap['left_hip'].y + keypointMap['right_hip'].y) / 2,
+                    z: (keypointMap['left_hip'].z + keypointMap['right_hip'].z) / 2
+                };
+                
+                characterLimbs.torso.position = new BABYLON.Vector3(hipCenter.x, hipCenter.y, hipCenter.z);
+                
+                // Torso rotation
+                if (keypointMap['left_shoulder'] && keypointMap['right_shoulder']) {
+                    const shoulderCenter = {
+                        x: (keypointMap['left_shoulder'].x + keypointMap['right_shoulder'].x) / 2,
+                        y: (keypointMap['left_shoulder'].y + keypointMap['right_shoulder'].y) / 2,
+                        z: (keypointMap['left_shoulder'].z + keypointMap['right_shoulder'].z) / 2
+                    };
+                    
+                    const spineDirection = new BABYLON.Vector3(
+                        shoulderCenter.x - hipCenter.x,
+                        shoulderCenter.y - hipCenter.y,
+                        shoulderCenter.z - hipCenter.z
+                    );
+                    
+                    if (spineDirection.length() > 0) {
+                        spineDirection.normalize();
+                        const defaultSpine = new BABYLON.Vector3(0, 1, 0);
+                        const rotationAxis = BABYLON.Vector3.Cross(defaultSpine, spineDirection);
+                        const rotationAngle = Math.acos(BABYLON.Vector3.Dot(defaultSpine, spineDirection));
+                        
+                        if (rotationAxis.length() > 0.001) {
+                            rotationAxis.normalize();
+                            characterLimbs.torso.rotationQuaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, rotationAngle);
+                        }
+                    }
+                }
+            }
+
+            // Keep head connected to torso (head is already parented to torso, so no need to update position)
+
+            // Update limb rotations
+            updateLimbRotation('left_shoulder', 'left_elbow', characterLimbs.leftShoulder, keypointMap);
+            updateLimbRotation('right_shoulder', 'right_elbow', characterLimbs.rightShoulder, keypointMap);
+            updateForearmRotation('left_elbow', 'left_wrist', characterLimbs.leftElbow, keypointMap);
+            updateForearmRotation('right_elbow', 'right_wrist', characterLimbs.rightElbow, keypointMap);
+
+            updateLegRotation('left_hip', 'left_knee', characterLimbs.leftHip, keypointMap);
+            updateLegRotation('right_hip', 'right_knee', characterLimbs.rightHip, keypointMap);
+            updateLowerLegRotation('left_knee', 'left_ankle', characterLimbs.leftKnee, keypointMap);
+            updateLowerLegRotation('right_knee', 'right_ankle', characterLimbs.rightKnee, keypointMap);
+        }
+
+        // Limb rotation functions (simplified for mobile)
+        function updateLimbRotation(startPoint, endPoint, limbNode, keypointMap) {
+            if (!keypointMap[startPoint] || !keypointMap[endPoint] || !limbNode) return;
+
+            const start = keypointMap[startPoint];
+            const end = keypointMap[endPoint];
+            
+            const direction = new BABYLON.Vector3(end.x - start.x, end.y - start.y, end.z - start.z);
+            
+            if (direction.length() > 0) {
+                direction.normalize();
+                const defaultDirection = new BABYLON.Vector3(0, -1, 0);
+                const rotationAxis = BABYLON.Vector3.Cross(defaultDirection, direction);
+                const rotationAngle = Math.acos(BABYLON.Vector3.Dot(defaultDirection, direction));
+                
+                if (rotationAxis.length() > 0.001) {
+                    rotationAxis.normalize();
+                    limbNode.rotationQuaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, rotationAngle);
+                }
+            }
+        }
+
+        function updateLegRotation(startPoint, endPoint, limbNode, keypointMap) {
+            if (!keypointMap[startPoint] || !keypointMap[endPoint] || !limbNode) return;
+
+            const start = keypointMap[startPoint];
+            const end = keypointMap[endPoint];
+            
+            // Calculate raw direction vector
+            const rawDirection = new BABYLON.Vector3(
+                end.x - start.x,
+                end.y - start.y,
+                end.z - start.z
+            );
+            
+            if (rawDirection.length() > 0) {
+                // Apply rotation damping based on movement direction
+                const isOutward = Math.abs(rawDirection.x) > 0.1; // Moving away from center
+                const dampingFactor = isOutward ? 0.7 : 1.3; // Reduce rotation when moving outward, increase when moving inward
+                
+                const direction = new BABYLON.Vector3(
+                    rawDirection.x * dampingFactor,
+                    rawDirection.y,
+                    rawDirection.z
+                );
+                
+                direction.normalize();
+                const defaultDirection = new BABYLON.Vector3(0, -1, 0);
+                const rotationAxis = BABYLON.Vector3.Cross(defaultDirection, direction);
+                const rotationAngle = Math.acos(BABYLON.Vector3.Dot(defaultDirection, direction));
+                
+                if (rotationAxis.length() > 0.001) {
+                    rotationAxis.normalize();
+                    limbNode.rotationQuaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, rotationAngle);
+                }
+            }
+        }
+
+        function updateLowerLegRotation(startPoint, endPoint, limbNode, keypointMap) {
+            if (!keypointMap[startPoint] || !keypointMap[endPoint] || !limbNode) return;
+
+            const start = keypointMap[startPoint];
+            const end = keypointMap[endPoint];
+            
+            // Calculate raw direction vector from knee to ankle
+            const rawDirection = new BABYLON.Vector3(
+                end.x - start.x,
+                end.y - start.y,
+                end.z - start.z
+            );
+            
+            if (rawDirection.length() > 0) {
+                // Apply rotation damping based on movement direction for lower legs too
+                const isOutward = Math.abs(rawDirection.x) > 0.1; // Moving away from center
+                const dampingFactor = isOutward ? 0.8 : 1.2; // Slight damping adjustment for lower legs
+                
+                const direction = new BABYLON.Vector3(
+                    rawDirection.x * dampingFactor,
+                    rawDirection.y,
+                    rawDirection.z
+                );
+                
+                direction.normalize();
+                const defaultDirection = new BABYLON.Vector3(0, -1, 0);
+                const rotationAxis = BABYLON.Vector3.Cross(defaultDirection, direction);
+                const rotationAngle = Math.acos(BABYLON.Vector3.Dot(defaultDirection, direction));
+                
+                if (rotationAxis.length() > 0.001) {
+                    rotationAxis.normalize();
+                    limbNode.rotationQuaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, rotationAngle);
+                }
+            }
+        }
+
+        function updateForearmRotation(startPoint, endPoint, limbNode, keypointMap) {
+            if (!keypointMap[startPoint] || !keypointMap[endPoint] || !limbNode) return;
+
+            const start = keypointMap[startPoint];
+            const end = keypointMap[endPoint];
+            
+            // Calculate direction vector from elbow to wrist for proper forearm rotation
+            const direction = new BABYLON.Vector3(
+                end.x - start.x,
+                end.y - start.y,
+                end.z - start.z
+            );
+            
+            if (direction.length() > 0) {
+                direction.normalize();
+                const defaultDirection = new BABYLON.Vector3(0, -1, 0);
+                const rotationAxis = BABYLON.Vector3.Cross(defaultDirection, direction);
+                const rotationAngle = Math.acos(BABYLON.Vector3.Dot(defaultDirection, direction));
+                
+                if (rotationAxis.length() > 0.001) {
+                    rotationAxis.normalize();
+                    limbNode.rotationQuaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, rotationAngle);
+                }
+            }
+        }
+
+        // Event handlers
+        document.getElementById('switchCamera').addEventListener('click', async () => {
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            updateStatus('Switching camera...');
+            
+            try {
+                await setupCamera();
+                updateStatus('Camera switched - Ready!');
+            } catch (error) {
+                updateStatus('Camera switch failed');
+                currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user'; // Revert
+            }
+        });
+
+        document.getElementById('toggleTracking').addEventListener('click', () => {
+            // Toggle tracking boxes visibility
+            const button = document.getElementById('toggleTracking');
+            const currentlyActive = button.classList.contains('active');
+            
+            Object.values(trackingBoxes).forEach(box => {
+                box.isVisible = !currentlyActive;
+            });
+            
+            if (currentlyActive) {
+                button.classList.remove('active');
+                updateStatus('Tracking boxes hidden');
+            } else {
+                button.classList.add('active');
+                updateStatus('Tracking boxes visible');
+            }
+        });
+
+        document.getElementById('resetPose').addEventListener('click', () => {
+            // Reset character to default position
+            if (characterLimbs.torso) {
+                characterLimbs.torso.position = BABYLON.Vector3.Zero();
+                characterLimbs.torso.rotationQuaternion = BABYLON.Quaternion.Identity();
+            }
+            updateStatus('Pose reset');
+        });
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        // Handle orientation changes on mobile
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                engine.resize();
+            }, 100);
+        });
+
+        // Prevent zoom on mobile
+        document.addEventListener('touchmove', function(event) {
+            if (event.scale !== 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+        // Set playsinline attribute for non-Firefox browsers
+        window.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('video');
+            const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
+            if (!isFirefox) {
+                video.setAttribute('playsinline', '');
+            }
+        });
+
+        // Initialize when page loads
+        window.addEventListener('load', initApp);
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            if (engine) {
+                engine.dispose();
+            }
+        });
+    </script>
+</body>
+</html>

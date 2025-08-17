@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+        <title>Motion Tracked Character - Babylon.js</title>
+
+        <!-- Babylon.js -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
+        <script src="https://cdn.babylonjs.com/recast.js"></script>
+        <script src="https://cdn.babylonjs.com/ammo.js"></script>
+        <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+        <script src="https://cdn.babylonjs.com/cannon.js"></script>
+        <script src="https://cdn.babylonjs.com/Oimo.js"></script>
+        <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
+        <script src="https://cdn.babylonjs.com/babylon.js"></script>
+        <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+        <script src="https://cdn.babylonjs.com/addons/babylonjs.addons.min.js"></script>
+        <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+
+        <style>
+            html,
+            body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+
+            #canvasZone {
+                width: 100%;
+                height: 100%;
+            }
+
+            #video {
+                position: absolute;
+                bottom: 10px;
+                right: 10px;
+                width: 320px;
+                height: 240px;
+                border: 2px solid #007acc;
+                border-radius: 8px;
+                z-index: 100;
+                transform: scaleX(-1); /* Mirror the video horizontally */
+            }
+
+            #controls {
+                position: absolute;
+                bottom: 10px;
+                left: 10px;
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 15px;
+                border-radius: 8px;
+                font-family: Arial, sans-serif;
+                font-size: 12px;
+                z-index: 100;
+                width: 600px;
+                height: 600px;
+                overflow-y: auto;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+            }
+
+            #controls input[type="range"] {
+                width: 250px;
+                height: 20px;
+                margin: 5px 0;
+            }
+
+            #controls button {
+                background: #007acc;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                margin: 2px;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+
+            #controls button:hover {
+                background: #005a9f;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
+        <div id="controls">
+            <div>
+                <div><strong>Motion Tracking</strong></div>
+                <div>Status: <span id="trackingStatus">Initializing...</span></div>
+                <div><strong>Tracking Sensitivity</strong></div>
+                <div>
+                    <label for="sensitivity">Min Score:</label>
+                    <input type="range" id="sensitivity" min="0" max="1" step="0.05" value="0.9" oninput="updateSensitivity(this.value)" title="Minimum tracking score sensitivity">
+                    <span id="sensitivityValue">0.90</span>
+                </div>
+                
+                <div><strong>Tracking Origin</strong></div>
+                <div>
+                    <label for="originX">X:</label>
+                    <input type="range" id="originX" min="-5" max="5" step="0.1" value="0" oninput="updateOrigin()" title="Tracking origin X">
+                    <span id="originXValue">0.0</span>
+                </div>
+                <div>
+                    <label for="originY">Y:</label>
+                    <input type="range" id="originY" min="-5" max="5" step="0.1" value="0" oninput="updateOrigin()" title="Tracking origin Y">
+                    <span id="originYValue">0.0</span>
+                </div>
+                <div>
+                    <label for="originZ">Z:</label>
+                    <input type="range" id="originZ" min="-5" max="5" step="0.1" value="0" oninput="updateOrigin()" title="Tracking origin Z">
+                    <span id="originZValue">0.0</span>
+                </div>
+            </div>
+            
+            <div>
+                <div><strong>Position Offset</strong></div>
+                <div>
+                    <label for="posX">X:</label>
+                    <input type="range" id="posX" min="-10" max="10" step="0.1" value="0" oninput="updatePosition()" title="Position offset X">
+                    <span id="posXValue">0.0</span>
+                </div>
+                <div>
+                    <label for="posY">Y:</label>
+                    <input type="range" id="posY" min="-10" max="10" step="0.1" value="0" oninput="updatePosition()" title="Position offset Y">
+                    <span id="posYValue">0.0</span>
+                </div>
+                <div>
+                    <label for="posZ">Z:</label>
+                    <input type="range" id="posZ" min="-10" max="10" step="0.1" value="0" oninput="updatePosition()" title="Position offset Z">
+                    <span id="posZValue">0.0</span>
+                </div>
+                
+                <div><strong>Rotation</strong></div>
+                <div>
+                    <label for="rotX">X:</label>
+                    <input type="range" id="rotX" min="-180" max="180" step="5" value="0" oninput="updateRotation()" title="Rotation X">
+                    <span id="rotXValue">0°</span>
+                </div>
+                <div>
+                    <label for="rotY">Y:</label>
+                    <input type="range" id="rotY" min="-180" max="180" step="5" value="0" oninput="updateRotation()" title="Rotation Y">
+                    <span id="rotYValue">0°</span>
+                </div>
+                <div>
+                    <label for="rotZ">Z:</label>
+                    <input type="range" id="rotZ" min="-180" max="180" step="5" value="0" oninput="updateRotation()" title="Rotation Z">
+                    <span id="rotZValue">0°</span>
+                </div>
+            </div>
+            
+            <div>
+                <div><strong>Pose Scale (XYZ)</strong></div>
+                <div>
+                    <label for="scaleX">X:</label>
+                    <input type="range" id="scaleX" min="-15" max="15" step="0.1" value="-3.3" oninput="updatePoseScaleXYZ()" title="Pose scale X">
+                    <span id="scaleXValue">-3.3</span>
+                </div>
+                <div>
+                    <label for="scaleY">Y:</label>
+                    <input type="range" id="scaleY" min="-15" max="15" step="0.1" value="4.0" oninput="updatePoseScaleXYZ()" title="Pose scale Y">
+                    <span id="scaleYValue">4.0</span>
+                </div>
+                <div>
+                    <label for="scaleZ">Z:</label>
+                    <input type="range" id="scaleZ" min="-15" max="15" step="0.1" value="0.1" oninput="updatePoseScaleXYZ()" title="Pose scale Z">
+                    <span id="scaleZValue">0.1</span>
+                </div>
+                
+                <div>
+                    <button onclick="toggleTrackingBoxes()">Toggle Tracking Boxes</button>
+                    <button onclick="resetCharacterPose()">Reset Pose</button>
+                    <button onclick="resetAllControls()">Reset All</button>
+                </div>
+            </div>
+        </div>
+        <script>
+            var canvas = document.getElementById("renderCanvas");
+            var showTrackingBoxes = true;
+            var characterLimbs = {};
+            var trackingBoxes = {};
+            var poseScale = 5.0; // Scale factor for pose tracking distances
+            
+            // New control variables
+            var trackingOrigin = { x: 0, y: 0, z: 0 };
+            var positionOffset = { x: 0, y: 0, z: 0 };
+            var rotationOffset = { x: 0, y: 0, z: 0 };
+            var poseScaleXYZ = { x: -3.3, y: 4.0, z: 0.1 };
+            var trackingSensitivity = 0.9;
+
+            var startRenderLoop = function (engine, canvas) {
+                engine.runRenderLoop(function () {
+                    if (sceneToRender && sceneToRender.activeCamera) {
+                        sceneToRender.render();
+                    }
+                });
+            }
+
+            var engine = null;
+            var scene = null;
+            var sceneToRender = null;
+            var createDefaultEngine = function() { 
+                return new BABYLON.Engine(canvas, true, { 
+                    preserveDrawingBuffer: true, 
+                    stencil: true,  
+                    disableWebGL2Support: false
+                }); 
+            };
+
+            // MediaPipe pose detection setup
+            const createDetector = async () => {
+                try {
+                    await BABYLON.Tools.LoadScriptAsync("https://cdn.jsdelivr.net/npm/@mediapipe/pose")
+                    await BABYLON.Tools.LoadScriptAsync("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js")
+                    await BABYLON.Tools.LoadScriptAsync("https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection")
+
+                    const model = poseDetection.SupportedModels.BlazePose;
+                    const detectorConfig = {
+                        runtime: 'mediapipe',
+                        modelType: 'full',
+                        solutionPath: `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404`
+                    };
+                    
+                    const detector = await poseDetection.createDetector(model, detectorConfig);
+                    console.log("Pose detector ready");
+                    document.getElementById('trackingStatus').textContent = 'Active';
+                    return detector;
+                } catch (e) {
+                    console.log("Error creating detector", e);
+                    document.getElementById('trackingStatus').textContent = 'Error';
+                }
+            }
+
+            // Video stream setup
+            const createVideoStream = async () => {
+                var video = document.createElement('video');
+                video.id = 'video';
+                video.autoplay = true;
+                video.muted = true;
+                video.controls = true;
+                document.body.appendChild(video);
+                
+                try {
+                    const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = mediaStream;
+                    video.play();
+                    console.log("Video stream ready");
+                    return video;
+                } catch (e) {
+                    console.log("Error creating video stream", e);
+                    document.getElementById('trackingStatus').textContent = 'Camera Error';
+                }
+            }
+
+            // Character creation functions
+            function createLimb(name, radius, capSubdivisions, height, tessellation, topCapSubdivisions, color, scene) {
+                const mat = new BABYLON.StandardMaterial(name + "Mat", scene);
+                mat.diffuseColor = color;
+                const limb = BABYLON.MeshBuilder.CreateCapsule(name, {
+                    radius, 
+                    capSubdivisions, 
+                    height, 
+                    tessellation, 
+                    topCapSubdivisions
+                }, scene);
+                limb.material = mat;
+                return limb;
+            }
+
+            // Pose mapping functions
+            function mapPoseToCharacter(poses, scene) {
+                if (!poses || poses.length === 0 || !poses[0].keypoints3D) return;
+
+                const keypoints = poses[0].keypoints3D;
+                const keypointMap = {};
+                
+                // Create a map of keypoint names to positions
+                keypoints.forEach(kp => {
+                    if (kp.score >= trackingSensitivity) {
+                        // Determine if this is an arm-related keypoint
+                        const isArmKeypoint = kp.name.includes('shoulder') || 
+                                            kp.name.includes('elbow') || 
+                                            kp.name.includes('wrist');
+                        
+                        // Determine if this is a leg-related keypoint
+                        const isLegKeypoint = kp.name.includes('hip') || 
+                                            kp.name.includes('knee') || 
+                                            kp.name.includes('ankle');
+                        
+                        // Flip X scaling for both arms and legs to mirror movement
+                        const xScale = (isArmKeypoint || isLegKeypoint) ? -poseScaleXYZ.x : poseScaleXYZ.x;
+                        
+                        keypointMap[kp.name] = {
+                            // Tracking origin shifts the center point for scaling, position offset moves everything
+                            x: xScale * (kp.x - trackingOrigin.x) + positionOffset.x,
+                            y: -poseScaleXYZ.y * (kp.y - trackingOrigin.y) + positionOffset.y,
+                            z: -poseScaleXYZ.z * (kp.z - trackingOrigin.z) + positionOffset.z,
+                            score: kp.score
+                        };
+                    }
+                });
+
+                // Update character limb positions and rotations based on pose
+                updateCharacterFromPose(keypointMap, scene);
+                
+                // Update tracking boxes (if visible)
+                updateTrackingBoxes(keypoints, scene);
+            }
+
+            function updateCharacterFromPose(keypointMap, scene) {
+                // Update torso position and orientation based on shoulder and hip centers
+                if (keypointMap['left_hip'] && keypointMap['right_hip'] && characterLimbs.torso) {
+                    const hipCenter = {
+                        x: (keypointMap['left_hip'].x + keypointMap['right_hip'].x) / 2,
+                        y: (keypointMap['left_hip'].y + keypointMap['right_hip'].y) / 2,
+                        z: (keypointMap['left_hip'].z + keypointMap['right_hip'].z) / 2
+                    };
+                    
+                    // Calculate shoulder center for torso orientation
+                    let shoulderCenter = null;
+                    if (keypointMap['left_shoulder'] && keypointMap['right_shoulder']) {
+                        shoulderCenter = {
+                            x: (keypointMap['left_shoulder'].x + keypointMap['right_shoulder'].x) / 2,
+                            y: (keypointMap['left_shoulder'].y + keypointMap['right_shoulder'].y) / 2,
+                            z: (keypointMap['left_shoulder'].z + keypointMap['right_shoulder'].z) / 2
+                        };
+                    }
+                    
+                    // Set torso position allowing full vertical movement
+                    characterLimbs.torso.position = new BABYLON.Vector3(
+                        hipCenter.x, 
+                        hipCenter.y, // Use actual hip center Y position for vertical movement
+                        hipCenter.z
+                    );
+                    
+                    // Apply torso rotation based on spine angle
+                    if (shoulderCenter) {
+                        const spineDirection = new BABYLON.Vector3(
+                            shoulderCenter.x - hipCenter.x,
+                            shoulderCenter.y - hipCenter.y,
+                            shoulderCenter.z - hipCenter.z
+                        );
+                        
+                        if (spineDirection.length() > 0) {
+                            spineDirection.normalize();
+                            const defaultSpine = new BABYLON.Vector3(0, 1, 0);
+                            const rotationAxis = BABYLON.Vector3.Cross(defaultSpine, spineDirection);
+                            const rotationAngle = Math.acos(BABYLON.Vector3.Dot(defaultSpine, spineDirection));
+                            
+                            if (rotationAxis.length() > 0.001) {
+                                rotationAxis.normalize();
+                                characterLimbs.torso.rotationQuaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, rotationAngle);
+                            }
+                        }
+                    }
+                }
+
+                // Update head position with consistent offset from torso
+                if (characterLimbs.head && characterLimbs.torso) {
+                    // Keep head at a fixed position relative to torso center
+                    characterLimbs.head.position = new BABYLON.Vector3(
+                        characterLimbs.torso.position.x,
+                        characterLimbs.torso.position.y + 0.6, // Lowered head position
+                        characterLimbs.torso.position.z
+                    );
+                    
+                    // Optional: Add slight head tracking if nose is available
+                    if (keypointMap['nose']) {
+                        const nosePos = keypointMap['nose'];
+                        // Small adjustments based on nose position
+                        characterLimbs.head.position.x += (nosePos.x - characterLimbs.torso.position.x) * 0.3;
+                        characterLimbs.head.position.z += (nosePos.z - characterLimbs.torso.position.z) * 0.3;
+                    }
+                }
+
+                // Shoulders stay attached to torso - no position updates needed
+                
+                // Update arm rotations based on elbow positions
+                updateLimbRotation('left_shoulder', 'left_elbow', characterLimbs.leftShoulder, keypointMap);
+                updateLimbRotation('right_shoulder', 'right_elbow', characterLimbs.rightShoulder, keypointMap);
+                updateForearmRotation('left_elbow', 'left_wrist', characterLimbs.leftElbow, keypointMap);
+                updateForearmRotation('right_elbow', 'right_wrist', characterLimbs.rightElbow, keypointMap);
+
+                // Update leg rotations with specialized leg function
+                updateLegRotation('left_hip', 'left_knee', characterLimbs.leftHip, keypointMap);
+                updateLegRotation('right_hip', 'right_knee', characterLimbs.rightHip, keypointMap);
+                
+                // Update lower legs with ground constraints
+                updateLegRotation('left_knee', 'left_ankle', characterLimbs.leftKnee, keypointMap);
+                updateLegRotation('right_knee', 'right_ankle', characterLimbs.rightKnee, keypointMap);
+                
+                // Apply ground level constraints for feet
+                if (keypointMap['left_ankle'] && characterLimbs.leftKnee) {
+                    const leftAnkle = keypointMap['left_ankle'];
+                    const groundLevel = Math.min(
+                        keypointMap['left_ankle'] ? keypointMap['left_ankle'].y : 0,
+                        keypointMap['right_ankle'] ? keypointMap['right_ankle'].y : 0
+                    );
+                    
+                    // If ankle is not significantly raised, keep foot at ground level
+                    if (leftAnkle.y - groundLevel < 0.3) {
+                        // Adjust lower leg to point toward ground level
+                        const adjustedAnkle = {
+                            x: leftAnkle.x,
+                            y: groundLevel,
+                            z: leftAnkle.z
+                        };
+                        
+                        if (keypointMap['left_knee']) {
+                            const kneeToGround = new BABYLON.Vector3(
+                                adjustedAnkle.x - keypointMap['left_knee'].x,
+                                adjustedAnkle.y - keypointMap['left_knee'].y,
+                                adjustedAnkle.z - keypointMap['left_knee'].z
+                            );
+                            
+                            if (kneeToGround.length() > 0) {
+                                kneeToGround.normalize();
+                                const defaultDirection = new BABYLON.Vector3(0, -1, 0);
+                                const rotationAxis = BABYLON.Vector3.Cross(defaultDirection, kneeToGround);
+                                const rotationAngle = Math.acos(BABYLON.Vector3.Dot(defaultDirection, kneeToGround));
+                                
+                                if (rotationAxis.length() > 0.001) {
+                                    rotationAxis.normalize();
+                                    characterLimbs.leftKnee.rotationQuaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, rotationAngle);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Same ground constraint for right foot
+                if (keypointMap['right_ankle'] && characterLimbs.rightKnee) {
+                    const rightAnkle = keypointMap['right_ankle'];
+                    const groundLevel = Math.min(
+                        keypointMap['left_ankle'] ? keypointMap['left_ankle'].y : 0,
+                        keypointMap['right_ankle'] ? keypointMap['right_ankle'].y : 0
+                    );
+                    
+                    // If ankle is not significantly raised, keep foot at ground level
+                    if (rightAnkle.y - groundLevel < 0.3) {
+                        // Adjust lower leg to point toward ground level
+                        const adjustedAnkle = {
+                            x: rightAnkle.x,
+                            y: groundLevel,
+                            z: rightAnkle.z
+                        };
+                        
+                        if (keypointMap['right_knee']) {
+                            const kneeToGround = new BABYLON.Vector3(
+                                adjustedAnkle.x - keypointMap['right_knee'].x,
+                                adjustedAnkle.y - keypointMap['right_knee'].y,
+                                adjustedAnkle.z - keypointMap['right_knee'].z
+                            );
+                            
+                            if (kneeToGround.length() > 0) {
+                                kneeToGround.normalize();
+                                const defaultDirection = new BABYLON.Vector3(0, -1, 0);
+                                const rotationAxis = BABYLON.Vector3.Cross(defaultDirection, kneeToGround);
+                                const rotationAngle = Math.acos(BABYLON.Vector3.Dot(defaultDirection, kneeToGround));
+                                
+                                if (rotationAxis.length() > 0.001) {
+                                    rotationAxis.normalize();
+                                    characterLimbs.rightKnee.rotationQuaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, rotationAngle);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            function updateLegRotation(startPoint, endPoint, limbNode, keypointMap) {
+                if (!keypointMap[startPoint] || !keypointMap[endPoint] || !limbNode) return;
+
+                const start = keypointMap[startPoint];
+                const end = keypointMap[endPoint];
+                
+                // For legs, we need to handle left/right differently due to mirroring
+                const isLeftLeg = startPoint.includes('left');
+                
+                // Calculate direction vector with proper mirroring for legs
+                const direction = new BABYLON.Vector3(
+                    isLeftLeg ? -(end.x - start.x) : (end.x - start.x), // Mirror left leg differently
+                    end.y - start.y,
+                    end.z - start.z
+                );
+                
+                if (direction.length() > 0) {
+                    direction.normalize();
+                    
+                    // Calculate proper rotation to align limb with tracking
+                    const defaultDirection = new BABYLON.Vector3(0, -1, 0);
+                    const rotationAxis = BABYLON.Vector3.Cross(defaultDirection, direction);
+                    const rotationAngle = Math.acos(BABYLON.Vector3.Dot(defaultDirection, direction));
+                    
+                    if (rotationAxis.length() > 0.001) {
+                        rotationAxis.normalize();
+                        limbNode.rotationQuaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, rotationAngle);
+                    } else {
+                        if (BABYLON.Vector3.Dot(defaultDirection, direction) < 0) {
+                            limbNode.rotationQuaternion = BABYLON.Quaternion.RotationAxis(new BABYLON.Vector3(1, 0, 0), Math.PI);
+                        } else {
+                            limbNode.rotationQuaternion = BABYLON.Quaternion.Identity();
+                        }
+                    }
+                    
+                    // Enhanced bending visualization for legs
+                    const isUpperLeg = startPoint.includes('hip');
+                    const isLowerLeg = startPoint.includes('knee');
+                    
+                    if (isUpperLeg || isLowerLeg) {
+                        const bendAmount = Math.min(Math.abs(direction.x) + Math.abs(direction.z), 1.0);
+                        
+                        if (isUpperLeg) {
+                            limbNode.scaling.y = 0.8 + 0.2 * (1 - bendAmount);
+                            limbNode.scaling.x = 1.0 + 0.2 * bendAmount;
+                        } else if (isLowerLeg) {
+                            limbNode.scaling.y = 0.7 + 0.3 * (1 - bendAmount);
+                            limbNode.scaling.x = 1.0 + 0.3 * bendAmount;
+                        }
+                        
+                        // Reset scaling if limb is nearly straight
+                        if (bendAmount < 0.1) {
+                            limbNode.scaling = new BABYLON.Vector3(1, 1, 1);
+                        }
+                    }
+                }
+            }
+
+            function updateLimbRotation(startPoint, endPoint, limbNode, keypointMap) {
+                if (!keypointMap[startPoint] || !keypointMap[endPoint] || !limbNode) return;
+
+                const start = keypointMap[startPoint];
+                const end = keypointMap[endPoint];
+                
+                // Calculate direction vector from start to end
+                const direction = new BABYLON.Vector3(
+                    end.x - start.x,
+                    end.y - start.y,
+                    end.z - start.z
+                );
+                
+                if (direction.length() > 0) {
+                    direction.normalize();
+                    
+                    // Calculate proper rotation to align limb with tracking
+                    // Default limb orientation is along negative Y axis (pointing down)
+                    const defaultDirection = new BABYLON.Vector3(0, -1, 0);
+                    
+                    // Calculate rotation needed to align default direction with target direction
+                    const rotationAxis = BABYLON.Vector3.Cross(defaultDirection, direction);
+                    const rotationAngle = Math.acos(BABYLON.Vector3.Dot(defaultDirection, direction));
+                    
+                    if (rotationAxis.length() > 0.001) {
+                        rotationAxis.normalize();
+                        
+                        // Apply rotation using quaternion for more accurate results
+                        const quaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, rotationAngle);
+                        limbNode.rotationQuaternion = quaternion;
+                    } else {
+                        // Vectors are parallel or anti-parallel
+                        if (BABYLON.Vector3.Dot(defaultDirection, direction) < 0) {
+                            // Anti-parallel, rotate 180 degrees around X axis
+                            limbNode.rotationQuaternion = BABYLON.Quaternion.RotationAxis(new BABYLON.Vector3(1, 0, 0), Math.PI);
+                        } else {
+                            // Parallel, no rotation needed
+                            limbNode.rotationQuaternion = BABYLON.Quaternion.Identity();
+                        }
+                    }
+                    
+                    // Enhanced bending visualization for elbows and knees
+                    const isUpperLimb = startPoint.includes('shoulder') || startPoint.includes('hip');
+                    const isLowerLimb = startPoint.includes('elbow') || startPoint.includes('knee');
+                    
+                    if (isUpperLimb || isLowerLimb) {
+                        // Calculate bend amount based on deviation from straight down
+                        const bendAmount = Math.min(Math.abs(direction.x) + Math.abs(direction.z), 1.0); // More bend when not vertical
+                        
+                        // Apply more visible scaling to show bending
+                        if (isUpperLimb) {
+                            limbNode.scaling.y = 0.8 + 0.2 * (1 - bendAmount); // More visible compression when bent
+                            limbNode.scaling.x = 1.0 + 0.2 * bendAmount; // Expand width when bent
+                        } else if (isLowerLimb) {
+                            limbNode.scaling.y = 0.7 + 0.3 * (1 - bendAmount); // Even more compression for lower limbs
+                            limbNode.scaling.x = 1.0 + 0.3 * bendAmount; // More width increase when bent
+                        }
+                        
+                        // Reset scaling if limb is nearly straight
+                        if (bendAmount < 0.1) {
+                            limbNode.scaling = new BABYLON.Vector3(1, 1, 1);
+                        }
+                    }
+                }
+            }
+
+            function updateForearmRotation(startPoint, endPoint, limbNode, keypointMap) {
+                if (!keypointMap[startPoint] || !keypointMap[endPoint] || !limbNode) return;
+
+                const start = keypointMap[startPoint];
+                const end = keypointMap[endPoint];
+                
+                // Determine if this is a left or right arm
+                const isLeftArm = startPoint.includes('left');
+                
+                // Calculate direction vector with different adjustments for left vs right arms
+                const direction = new BABYLON.Vector3(
+                    isLeftArm ? start.x - 3 + end.x : start.x + 3 + end.x,  // Different adjustment for left vs right
+                    start.y + end.y,  // Same for both
+                    start.z + end.z   // Same for both
+                );
+                
+                if (direction.length() > 0) {
+                    direction.normalize();
+                    
+                    // Calculate proper rotation to align limb with tracking
+                    // Default limb orientation is along negative Y axis (pointing down)
+                    const defaultDirection = new BABYLON.Vector3(0, -1, 0);
+                    
+                    // Calculate rotation needed to align default direction with target direction
+                    const rotationAxis = BABYLON.Vector3.Cross(defaultDirection, direction);
+                    const rotationAngle = Math.acos(BABYLON.Vector3.Dot(defaultDirection, direction));
+                    
+                    if (rotationAxis.length() > 0.001) {
+                        rotationAxis.normalize();
+                        
+                        // Apply rotation using quaternion for more accurate results
+                        const quaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, rotationAngle);
+                        limbNode.rotationQuaternion = quaternion;
+                    } else {
+                        // Vectors are parallel or anti-parallel
+                        if (BABYLON.Vector3.Dot(defaultDirection, direction) < 0) {
+                            // Anti-parallel, rotate 180 degrees around X axis
+                            limbNode.rotationQuaternion = BABYLON.Quaternion.RotationAxis(new BABYLON.Vector3(1, 0, 0), Math.PI);
+                        } else {
+                            // Parallel, no rotation needed
+                            limbNode.rotationQuaternion = BABYLON.Quaternion.Identity();
+                        }
+                    }
+                }
+            }
+
+            function updateTrackingBoxes(keypoints, scene) {
+                if (!showTrackingBoxes) {
+                    // Hide all tracking boxes
+                    Object.values(trackingBoxes).forEach(box => {
+                        if (box) box.visibility = 0;
+                    });
+                    return;
+                }
+
+                // Create materials for tracking boxes
+                if (!scene._redMat) {
+                    scene._redMat = new BABYLON.StandardMaterial("redMat", scene);
+                    scene._redMat.emissiveColor = new BABYLON.Color3(1, 0, 0);
+                    scene._redMat.alpha = 0.3;
+                }
+                if (!scene._greenMat) {
+                    scene._greenMat = new BABYLON.StandardMaterial("greenMat", scene);
+                    scene._greenMat.emissiveColor = new BABYLON.Color3(0, 1, 0);
+                    scene._greenMat.alpha = 0.3;
+                }
+
+                // Update tracking box positions
+                keypoints.forEach(landmark => {
+                    if (landmark.score >= trackingSensitivity) {
+                        let box = trackingBoxes[landmark.name];
+                        if (!box) {
+                            box = BABYLON.MeshBuilder.CreateBox(`tracking_${landmark.name}`, { size: 0.2 }, scene);
+                            trackingBoxes[landmark.name] = box;
+                        
+                        if (landmark.name.includes("right")) {
+                            box.material = scene._redMat;
+                        } else if (landmark.name.includes("left")) {
+                            box.material = scene._greenMat;
+                        } else {
+                            box.material = scene._redMat;
+                        }
+                    }
+                    
+                    // Determine if this is an arm-related keypoint for consistent scaling
+                    const isArmKeypoint = landmark.name.includes('shoulder') || 
+                                        landmark.name.includes('elbow') || 
+                                        landmark.name.includes('wrist');
+                    
+                    // Use different X scaling for arms vs legs (same as character mapping)
+                    const xScale = isArmKeypoint ? -poseScaleXYZ.x : poseScaleXYZ.x;
+                    
+                    box.position.x = xScale * (landmark.x - trackingOrigin.x) + positionOffset.x;
+                    box.position.y = -poseScaleXYZ.y * (landmark.y - trackingOrigin.y) + positionOffset.y;
+                    box.position.z = -poseScaleXYZ.z * (landmark.z - trackingOrigin.z) + positionOffset.z;
+                    box.visibility = showTrackingBoxes ? landmark.score : 0;
+                    }
+                });
+            }
+
+            // Scene creation
+            const createScene = async function () {
+                const video = await createVideoStream();
+                const detector = await createDetector();
+
+                const scene = new BABYLON.Scene(engine);
+                scene.clearColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+
+                const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 2, 10, BABYLON.Vector3.Zero(), scene);
+                camera.attachControl(true);
+
+                const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+                // Create character
+                const bodyColor = new BABYLON.Color3(0.8, 0.6, 0.4);
+
+                // Torso
+                const torso = createLimb("torso", 0.4, 8, 1.8, 8, 8, bodyColor, scene);
+                torso.position.y = 1;
+                characterLimbs.torso = torso;
+
+                // Head
+                const head = BABYLON.MeshBuilder.CreateSphere("head", { diameter: 1 }, scene);
+                head.material = torso.material;
+                head.position.y = 1.5;
+                head.parent = torso;
+                characterLimbs.head = head;
+
+                // Shoulders
+                const leftShoulder = new BABYLON.TransformNode("leftShoulder", scene);
+                leftShoulder.position = new BABYLON.Vector3(0.3, 0.7, 0);
+                leftShoulder.parent = torso;
+                characterLimbs.leftShoulder = leftShoulder;
+
+                const rightShoulder = new BABYLON.TransformNode("rightShoulder", scene);
+                rightShoulder.position = new BABYLON.Vector3(-0.3, 0.7, 0);
+                rightShoulder.parent = torso;
+                characterLimbs.rightShoulder = rightShoulder;
+
+                // Arms
+                const leftUpperArm = createLimb("leftUpperArm", 0.2, 8, 1.2, 8, 8, bodyColor, scene);
+                leftUpperArm.parent = leftShoulder;
+                leftUpperArm.position.y = -0.7;
+                leftUpperArm.position.x = 0.1;
+                characterLimbs.leftUpperArm = leftUpperArm;
+
+                const rightUpperArm = createLimb("rightUpperArm", 0.2, 8, 1.2, 8, 8, bodyColor, scene);
+                rightUpperArm.parent = rightShoulder;
+                rightUpperArm.position.y = -0.7;
+                rightUpperArm.position.x = -0.1;
+                characterLimbs.rightUpperArm = rightUpperArm;
+
+                // Elbows
+                const leftElbow = new BABYLON.TransformNode("leftElbow", scene);
+                leftElbow.position.y = -1;
+                leftElbow.parent = leftUpperArm;
+                characterLimbs.leftElbow = leftElbow;
+
+                const rightElbow = new BABYLON.TransformNode("rightElbow", scene);
+                rightElbow.position.y = -1;
+                rightElbow.parent = rightUpperArm;
+                characterLimbs.rightElbow = rightElbow;
+
+                // Forearms
+                const leftForearm = createLimb("leftForearm", 0.2, 8, 1.2, 8, 8, bodyColor, scene);
+                leftForearm.parent = leftElbow;
+                leftForearm.position.y = -0.2;
+                leftForearm.position.x = -0.1;
+                characterLimbs.leftForearm = leftForearm;
+
+                const rightForearm = createLimb("rightForearm", 0.2, 8, 1.2, 8, 8, bodyColor, scene);
+                rightForearm.parent = rightElbow;
+                rightForearm.position.y = -0.2;
+                rightForearm.position.x = 0.1;
+                characterLimbs.rightForearm = rightForearm;
+
+                // Hips
+                const leftHip = new BABYLON.TransformNode("leftHip", scene);
+                leftHip.position = new BABYLON.Vector3(-0.3, -1, 0);
+                leftHip.parent = torso;
+                characterLimbs.leftHip = leftHip;
+
+                const rightHip = new BABYLON.TransformNode("rightHip", scene);
+                rightHip.position = new BABYLON.Vector3(0.3, -1, 0);
+                rightHip.parent = torso;
+                characterLimbs.rightHip = rightHip;
+
+                // Thighs
+                const leftThigh = createLimb("leftThigh", 0.2, 8, 1.5, 8, 8, bodyColor, scene);
+                leftThigh.parent = leftHip;
+                leftThigh.position.y = -0.5;
+                characterLimbs.leftThigh = leftThigh;
+
+                const rightThigh = createLimb("rightThigh", 0.2, 8, 1.5, 8, 8, bodyColor, scene);
+                rightThigh.parent = rightHip;
+                rightThigh.position.y = -0.5;
+                characterLimbs.rightThigh = rightThigh;
+
+                // Knees
+                const leftKnee = new BABYLON.TransformNode("leftKnee", scene);
+                leftKnee.position.y = -1;
+                leftKnee.parent = leftThigh;
+                characterLimbs.leftKnee = leftKnee;
+
+                const rightKnee = new BABYLON.TransformNode("rightKnee", scene);
+                rightKnee.position.y = -1;
+                rightKnee.parent = rightThigh;
+                characterLimbs.rightKnee = rightKnee;
+
+                // Shins
+                const leftShin = createLimb("leftShin", 0.2, 8, 1.5, 8, 8, bodyColor, scene);
+                leftShin.parent = leftKnee;
+                leftShin.position.y = -0.5;
+                characterLimbs.leftShin = leftShin;
+
+                const rightShin = createLimb("rightShin", 0.2, 8, 1.5, 8, 8, bodyColor, scene);
+                rightShin.parent = rightKnee;
+                rightShin.position.y = -0.5;
+                characterLimbs.rightShin = rightShin;
+
+                // Set initial pose
+                resetCharacterPose();
+
+                // Ground plane (invisible)
+                const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 6, height: 6 }, scene);
+                ground.visibility = 0;
+
+                // Pose detection render loop
+                if (detector && video) {
+                    scene.onBeforeRenderObservable.add(async () => {
+                        try {
+                            const poses = await detector.estimatePoses(video);
+                            if (poses && poses.length > 0) {
+                                mapPoseToCharacter(poses, scene);
+                            }
+                        } catch (e) {
+                            console.log("Error in pose detection:", e);
+                        }
+                    });
+                }
+
+                return scene;
+            };
+
+            // Control functions
+            function toggleTrackingBoxes() {
+                showTrackingBoxes = !showTrackingBoxes;
+                console.log("Tracking boxes:", showTrackingBoxes ? "visible" : "hidden");
+            }
+
+            function resetCharacterPose() {
+                if (characterLimbs.leftShoulder) characterLimbs.leftShoulder.rotation.z = Math.PI / 10;
+                if (characterLimbs.rightShoulder) characterLimbs.rightShoulder.rotation.z = -Math.PI / 10;
+                if (characterLimbs.leftElbow) characterLimbs.leftElbow.rotation.z = Math.PI / -10;
+                if (characterLimbs.rightElbow) characterLimbs.rightElbow.rotation.z = -Math.PI / -10;
+                if (characterLimbs.leftHip) characterLimbs.leftHip.rotation.x = -Math.PI / 50;
+                if (characterLimbs.rightHip) characterLimbs.rightHip.rotation.x = Math.PI / -50;
+                if (characterLimbs.leftKnee) characterLimbs.leftKnee.rotation.x = Math.PI / 20;
+                if (characterLimbs.rightKnee) characterLimbs.rightKnee.rotation.x = -Math.PI / -20;
+            }
+
+            function updateOrigin() {
+                trackingOrigin.x = parseFloat(document.getElementById('originX').value);
+                trackingOrigin.y = parseFloat(document.getElementById('originY').value);
+                trackingOrigin.z = parseFloat(document.getElementById('originZ').value);
+                document.getElementById('originXValue').textContent = trackingOrigin.x.toFixed(1);
+                document.getElementById('originYValue').textContent = trackingOrigin.y.toFixed(1);
+                document.getElementById('originZValue').textContent = trackingOrigin.z.toFixed(1);
+            }
+
+            function updatePosition() {
+                positionOffset.x = parseFloat(document.getElementById('posX').value);
+                positionOffset.y = parseFloat(document.getElementById('posY').value);
+                positionOffset.z = parseFloat(document.getElementById('posZ').value);
+                document.getElementById('posXValue').textContent = positionOffset.x.toFixed(1);
+                document.getElementById('posYValue').textContent = positionOffset.y.toFixed(1);
+                document.getElementById('posZValue').textContent = positionOffset.z.toFixed(1);
+            }
+
+            function updateRotation() {
+                rotationOffset.x = parseFloat(document.getElementById('rotX').value) * Math.PI / 180;
+                rotationOffset.y = parseFloat(document.getElementById('rotY').value) * Math.PI / 180;
+                rotationOffset.z = parseFloat(document.getElementById('rotZ').value) * Math.PI / 180;
+                document.getElementById('rotXValue').textContent = document.getElementById('rotX').value + '°';
+                document.getElementById('rotYValue').textContent = document.getElementById('rotY').value + '°';
+                document.getElementById('rotZValue').textContent = document.getElementById('rotZ').value + '°';
+            }
+
+            function updatePoseScaleXYZ() {
+                poseScaleXYZ.x = parseFloat(document.getElementById('scaleX').value);
+                poseScaleXYZ.y = parseFloat(document.getElementById('scaleY').value);
+                poseScaleXYZ.z = parseFloat(document.getElementById('scaleZ').value);
+                document.getElementById('scaleXValue').textContent = poseScaleXYZ.x.toFixed(1);
+                document.getElementById('scaleYValue').textContent = poseScaleXYZ.y.toFixed(1);
+                document.getElementById('scaleZValue').textContent = poseScaleXYZ.z.toFixed(1);
+            }
+
+            function updateSensitivity(value) {
+                trackingSensitivity = parseFloat(value);
+                document.getElementById('sensitivityValue').textContent = trackingSensitivity.toFixed(2);
+            }
+
+            function resetAllControls() {
+                // Reset tracking origin
+                document.getElementById('originX').value = 0;
+                document.getElementById('originY').value = 0;
+                document.getElementById('originZ').value = 0;
+                
+                // Reset position offset
+                document.getElementById('posX').value = 0;
+                document.getElementById('posY').value = 0;
+                document.getElementById('posZ').value = 0;
+                
+                // Reset rotation
+                document.getElementById('rotX').value = 0;
+                document.getElementById('rotY').value = 0;
+                document.getElementById('rotZ').value = 0;
+                
+                // Reset scale to new defaults
+                document.getElementById('scaleX').value = -3.3;
+                document.getElementById('scaleY').value = 4.0;
+                document.getElementById('scaleZ').value = 0.1;
+                
+                // Reset sensitivity to new default
+                document.getElementById('sensitivity').value = 0.9;
+                
+                // Update all values
+                updateOrigin();
+                updatePosition();
+                updateRotation();
+                updatePoseScaleXYZ();
+                updateSensitivity(0.9);
+                resetCharacterPose();
+            }
+
+            // Initialize application
+            window.initFunction = async function() {
+                var asyncEngineCreation = async function() {
+                    try {
+                        return createDefaultEngine();
+                    } catch(e) {
+                        console.log("The available createEngine function failed. Creating the default engine instead");
+                        return createDefaultEngine();
+                    }
+                }
+
+                window.engine = await asyncEngineCreation();
+                
+                const engineOptions = window.engine.getCreationOptions?.();
+                if (!engineOptions || engineOptions.audioEngine !== false) {
+                    // Audio engine setup if needed
+                }
+                
+                if (!engine) throw 'Engine should not be null.';
+                startRenderLoop(engine, canvas);
+                window.scene = createScene();
+            };
+
+            initFunction().then(() => {
+                scene.then(returnedScene => { 
+                    sceneToRender = returnedScene; 
+                });
+            });
+
+            // Resize handler
+            window.addEventListener("resize", function () {
+                engine.resize();
+            });
+        </script>
+    </body>
+</html>
