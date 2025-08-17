@@ -19,7 +19,7 @@
         }
         
         #container {
-            position: relative;
+            position: absolute;
             width: 100vw;
             height: 100vh;
             display: flex;
@@ -37,10 +37,12 @@
             z-index: 10;
             transform: scaleX(-1);
             object-fit: cover;
+
         }
         
         #canvas3d {
             flex: 1;
+margin-top:65px;
             width: 100%;
             height: 100%;
             display: block;
@@ -48,7 +50,7 @@
         
         #controls {
             position: absolute;
-            bottom: 10px;
+            top: 10px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
