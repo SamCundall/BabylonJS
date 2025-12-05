@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Letter-Image Message Composer</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    background: #0b0f1a;
+    color: #f8fafc;
+    margin: 0;
+    padding: 24px;
+    display: flex;
+    justify-content: center;
+    
+  }
+  .app { width: 700px; max-width: 100%; }
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  input[type="text"] {
+    width: 100%; padding: 10px 12px; font-size: 16px;
+    border-radius: 8px; border: 1px solid #1e293b;
+    background: #0f172a; color: #f1f5f9;
+  }
+  .group { margin-top: 16px; }
+
+  .group-title { font-size: 12px; font-weight: 500; color: #93c5fd; }
+
+  .carousel { display:flex; align-items:center; }
+  .carousel-track { display:flex; align-items:center; }
+  .background-row { display:flex; flex-wrap:wrap; gap:8px; align-items:flex-start; margin-top:20px; overflow:hidden; padding-bottom:4px; }
+  .background-row .group { flex:0 0 auto; margin-top:0; display:flex; flex-direction:column; align-items:center; }
+  .background-row .group .group-title { margin-top:0; }
+  /* Thumbnail spacing inside each carousel track */
+  .carousel-track { display:flex; align-items:center; gap:20px; }
+  .thumb {
+    /* Allow dynamic width set inline based on aspect ratio */
+    height: 55px; border-radius: 6px;
+    background-size: cover; background-position: center;
+    border: 2px solid transparent; cursor: pointer;
+  }
+  .thumb.selected { border-color: #60a5fa; }
+  .emoji-preview { border:2px solid #1e293b; border-radius:8px; }
+  @media (max-width: 700px), (max-height:600px){
+    .thumb { height:45px; }
+    /* Slightly scale down canvases on small screens */
+    canvas { transform: scale(0.9); transform-origin: top left; }
+    .app { width: 100%; }
+  }
+  .previews-row { display:flex; flex-wrap:nowrap; gap:12px; margin-top:12px; }
+  .previews-row.one .col:last-child,
+  .previews-row.two .col:last-child { margin-left:auto; display:flex; flex-direction:column; align-items:flex-start; }
+  .previews-row .col { flex:1 1 0; }
+  .previews-row.two .col { flex:1 1 0; }
+  .previews-row.sharepoint .col { flex:1 1 100%; }
+  .previews-row-sharepoint { margin-top:12px; }
+  .col { text-align: left; }
+  .label { color: #94a3b8; font-size: 12px; margin-bottom: 4px; }
+  canvas {
+    background: transparent;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(2,6,23,0.5);
+    border:2px solid #1e293b; /* unified light outline */
+  }
+  .top-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .actions { margin-top: 0; display: flex; gap: 8px; }
+  .char-counter { font-size: 10px; color: #64748b; margin-top: 2px; }
+  .char-counter.warning { color: #f59e0b; }
+  .char-counter.limit { color: #ef4444; font-weight: 600; }
+  button {
+    padding: 8px 14px; background: #3b82f6; color: white;
+    border: none; border-radius: 6px; cursor: pointer;
+  }
+  /* Floating tuning panel (Alt+B) */
+  #tuningPanel {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 9999;
+    background: rgba(15,23,42,0.96);
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 8px 10px;
+    max-width: 260px;
+    font-size: 11px;
+    color: #e5e7eb;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    display: none;
+  }
+  #tuningPanel h2 {
+    margin: 0 0 4px 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #93c5fd;
+  }
+  #tuningPanel .row { display:flex; align-items:center; margin-bottom:4px; gap:4px; }
+  #tuningPanel label { flex: 0 0 90px; }
+  #tuningPanel select,
+  #tuningPanel input[type="number"],
+  #tuningPanel input[type="range"] { flex:1; font-size:10px; }
+  #tuningPanel input[type="number"] { padding:2px 4px; border-radius:4px; border:1px solid #1e293b; background:#020617; color:#e5e7eb; max-width:62px; }
+  #tuningPanel input[type="range"] { accent-color:#3b82f6; }
+  #tuningPanel .note { font-size:10px; color:#64748b; margin-top:4px; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <h1>Letter Image Composer <span style="font-weight:400; color:#64748b; font-size:12px;">(type new messages here)</span></h1>
+
+    <div class="top-row">
+      <div style="flex:1;">
+        <input id="msg" type="text" value="Happy Holidays CAP" maxlength="32" />
+        <div id="charCounter" class="char-counter"></div>
+      </div>
+      <div class="actions">
+        <button id="downloadAll">Download PNGs</button>
+        <button id="reset">Reset</button>
+      </div>
+    </div>
+
+    <div style="font-size:11px; color:#64748b; margin-bottom:4px;">Background switch (click to change)</div>
+
+    <div class="background-row">
+      <div class="group">
+  <div class="group-title">Banner</div>
+        <div class="carousel" data-type="banner">
+          <div id="bannerChoices" class="carousel-track"></div>
+        </div>
+      </div>
+      <div class="group">
+  <div class="group-title">Avatar</div>
+        <div class="carousel" data-type="avatar">
+          <div id="avatarChoices" class="carousel-track"></div>
+        </div>
+      </div>
+      <div class="group">
+  <div class="group-title">Meeting</div>
+        <div class="carousel" data-type="vb">
+          <div id="vbChoices" class="carousel-track"></div>
+        </div>
+      </div>
+      <div class="group">
+  <div class="group-title">SharePoint</div>
+        <div class="carousel" data-type="sharepoint">
+          <div id="spChoices" class="carousel-track"></div>
+        </div>
+      </div>
+      <div class="group">
+  <div class="group-title">Emoji</div>
+        <div class="carousel" data-type="emoji">
+          <div id="emojiChoices" class="carousel-track"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating tuning panel (Alt+B) -->
+    <div id="tuningPanel">
+      <h2>Layout Tuning (Alt+B)</h2>
+      <div class="row">
+        <label for="tuneType">Type</label>
+        <select id="tuneType">
+          <option value="banner">Banner</option>
+          <option value="vb">Virtual BG</option>
+          <option value="sharepoint">SharePoint</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="tuneMin">Min scale</label>
+        <input id="tuneMinValue" type="number" min="0.2" max="2" step="0.05" />
+        <input id="tuneMin" type="range" min="0.2" max="2" step="0.05" />
+      </div>
+      <div class="row">
+        <label for="tuneMinWidth">Min - width %</label>
+        <input id="tuneMinWidthValue" type="number" min="50" max="100" step="1" />
+        <input id="tuneMinWidth" type="range" min="50" max="100" step="1" />
+      </div>
+      <div class="row">
+        <label for="tuneMinSpacing">Min - letter gap</label>
+        <input id="tuneMinSpacingValue" type="number" step="1" />
+        <input id="tuneMinSpacing" type="range" min="-100" max="100" step="1" />
+      </div>
+      <div class="row">
+        <label for="tuneMinWordGap">Min - word gap</label>
+        <input id="tuneMinWordGapValue" type="number" step="1" />
+        <input id="tuneMinWordGap" type="range" min="0" max="120" step="1" />
+      </div>
+      <div class="row">
+        <label for="tuneMid">Mid scale</label>
+        <input id="tuneMidValue" type="number" min="0.2" max="2" step="0.05" />
+        <input id="tuneMid" type="range" min="0.2" max="2" step="0.05" />
+      </div>
+      <div class="row">
+        <label for="tuneMidWidth">Mid - width %</label>
+        <input id="tuneMidWidthValue" type="number" min="50" max="100" step="1" />
+        <input id="tuneMidWidth" type="range" min="50" max="100" step="1" />
+      </div>
+      <div class="row">
+        <label for="tuneMidSpacing">Mid - letter gap</label>
+        <input id="tuneMidSpacingValue" type="number" step="1" />
+        <input id="tuneMidSpacing" type="range" min="-100" max="100" step="1" />
+      </div>
+      <div class="row">
+        <label for="tuneMidWordGap">Mid - word gap</label>
+        <input id="tuneMidWordGapValue" type="number" step="1" />
+        <input id="tuneMidWordGap" type="range" min="0" max="120" step="1" />
+      </div>
+      <div class="row">
+        <label for="tuneMax">Max scale</label>
+        <input id="tuneMaxValue" type="number" min="0.2" max="2" step="0.05" />
+        <input id="tuneMax" type="range" min="0.2" max="2" step="0.05" />
+      </div>
+      <div class="row">
+        <label for="tuneMaxWidth">Max - width %</label>
+        <input id="tuneMaxWidthValue" type="number" min="50" max="100" step="1" />
+        <input id="tuneMaxWidth" type="range" min="50" max="100" step="1" />
+      </div>
+      <div class="row">
+        <label for="tuneMaxSpacing">Max - letter gap</label>
+        <input id="tuneMaxSpacingValue" type="number" step="1" />
+        <input id="tuneMaxSpacing" type="range" min="-100" max="100" step="1" />
+      </div>
+      <div class="row">
+        <label for="tuneMaxWordGap">Max - word gap</label>
+        <input id="tuneMaxWordGapValue" type="number" step="1" />
+        <input id="tuneMaxWordGap" type="range" min="0" max="120" step="1" />
+      </div>
+      <div class="row">
+        <label for="bgAdjust">Bg bright</label>
+        <input id="bgAdjustValueInline" type="number" min="0.5" max="1.5" step="0.01" />
+        <input id="bgAdjust" type="range" min="0.5" max="1.5" step="0.01" value="1.00" />
+      </div>
+      <div class="note" id="tuneReadout"></div>
+    </div>
+
+    <!-- Legacy brightness container kept for backwards compatibility but unused visually -->
+    <div id="bgAdjustContainer" style="display:none; margin-top:12px;">
+      <label for="bgAdjustLegacy" style="font-size:11px; color:#64748b; display:block;">Background Brightness: <span id="bgAdjustValue">1.00</span></label>
+      <input id="bgAdjustLegacy" type="range" min="0.5" max="1.5" step="0.01" value="1.00" style="width:100%;" />
+      <div style="font-size:10px; color:#475569;">Dark &larr; Adjust &rarr; Bright</div>
+    </div>
+
+    <div style="font-size:11px; color:#64748b; margin-top:16px;">Preview title</div>
+  <div class="previews-row one">
+      <div class="col">
+        <div class="label">Banner</div>
+        <canvas id="banner"></canvas>
+      </div>
+      <div class="col">
+        <div class="label">Avatar</div>
+        <canvas id="avatar"></canvas>
+      </div>
+    </div>
+  <div class="previews-row two">
+      <div class="col">
+        <div class="label">Virtual Background</div>
+        <canvas id="vb"></canvas>
+      </div>
+      <div class="col">
+        <div class="label">Emoji</div>
+        <canvas id="emoji" class="emoji-preview"></canvas>
+      </div>
+    </div>
+    <div class="previews-row sharepoint">
+      <div class="col">
+        <div class="label">SharePoint</div>
+        <canvas id="sharepoint"></canvas>
+      </div>
+    </div>
+
+    <!-- Bottom duplicate action buttons removed -->
+  </div>
+
+<script>
+/* ============================================================
+   CONFIGURATION VARIABLES
+   ============================================================ */
+const CONFIG = {
+  LETTER_FOLDER: 'letters/',
+  BACKGROUND_FOLDER: 'backgrounds/',
+
+  // Base letter size (export pixels)
+  LETTER_SIZE: 150,
+
+  // Global default spacing between letters (can be negative to overlap)
+  //LETTER_SPACING: -40,
+
+  // Per‑type overrides for letter spacing (in pixels)
+  TYPE_SPACING: {
+    banner: -35,
+    avatar: -30,
+    vb: -30,
+    sharepoint: -40,
+    emoji: -20
+  },
+
+  // Extra spacing between words (added on top of letter spacing)
+  WORD_GAP: 20,
+
+  // How much letters are allowed to shrink to fit before wrapping
+  // Values are multipliers of LETTER_SIZE (e.g. 0.6 = 60%)
+  MIN_SCALE_PER_TYPE: {
+    banner: 0.4,
+    avatar: 0.7,
+    vb: 0.75,
+    sharepoint: 0.9,
+    emoji: 0.7
+  },
+
+  // Comfortable mid scale used between max and min
+  MID_SCALE_PER_TYPE: {
+    banner: 0.8,
+    avatar: 0.85,
+    vb: 1,
+    sharepoint: 0.9,
+    emoji: 0.9
+  },
+
+  // Thresholds (as fractions of max line width) that determine
+  // when we should stay at max, drop to mid, or drop to min.
+  // Only used by adaptive canvases (banner/vb/sharepoint).
+  SCALE_THRESHOLDS: {
+    stayMax: 0.7, // if widest line < 65% of maxWidth, use MAX scale
+    stayMid: 0.8   // if widest line < 90% of maxWidth, use MID scale, else MIN
+  },
+
+  // How much letters can grow for short text before wrapping
+  MAX_SCALE_PER_TYPE: {
+    banner: 1.25,
+    avatar: 0.9,
+    vb: 1.6,
+    sharepoint: 1.8,
+    emoji: 1.0
+  },
+
+  BANNER_WIDTH: 800,
+  BANNER_HEIGHT: 222,
+
+  AVATAR_WIDTH: 196,
+  AVATAR_HEIGHT: 196,
+
+  BACKGROUND_WIDTH: 1024,
+  BACKGROUND_HEIGHT: 576,
+
+  SHAREPOINT_WIDTH: 1148,
+  SHAREPOINT_HEIGHT: 485,
+
+  EMOJI_WIDTH: 100,
+  EMOJI_HEIGHT: 100,
+
+  // Default brightness multiplier applied to backgrounds (not emoji).
+  // 1.0 = original, <1 darkens, >1 brightens.
+  BACKGROUND_BRIGHTNESS_DEFAULT: 1.5,
+
+  SYMBOL_MAP: {
+    '#':'hash', '@':'at', '!':'exclamation', '?':'question',
+    '.':'dot', ',':'comma', ' ':'space'
+  },
+  WRAP_LETTER_THRESHOLD: 7, // configurable wrapping threshold
+  LINE_GAP_FACTOR: 0.075,    // reduced vertical gap between lines (about half previous)
+  BANNER_SCALE: 0.7,         // banner specific downscale factor
+  AVATAR_SCALE: 0.7,         // avatar specific downscale factor
+  MAX_INPUT_LENGTH: 32,      // maximum number of characters allowed in input
+
+  BACKGROUNDS: {
+    banner: [
+      'banner-bg-01.png',
+      'banner-bg-02.png',
+      'banner-bg-03.png',
+      'banner-bg-04.png'
+    ],
+    avatar: [
+      'avatar-bg-01.png',
+      'avatar-bg-02.png',
+      'avatar-bg-03.png',
+      'avatar-bg-04.png'
+    ],
+    vb: [
+      'background-bg-01.png',
+      'background-bg-02.png',
+      'background-bg-03.png',
+      'background-bg-04.png'
+    ],
+    sharepoint: [
+      'sharepoint-bg-01.png',
+      'sharepoint-bg-02.png',
+      'sharepoint-bg-03.png',
+      'sharepoint-bg-04.png'
+    ],
+    emoji: [
+      // Transparent option; sentinel value means no background draw.
+      'transparent'
+    ]
+  }
+};
+
+/* ============================================================
+   MAIN LOGIC
+   ============================================================ */
+const msgInput = document.getElementById('msg');
+const charCounter = document.getElementById('charCounter');
+const banner = document.getElementById('banner');
+const avatar = document.getElementById('avatar');
+const vb = document.getElementById('vb');
+const sharepoint = document.getElementById('sharepoint');
+const emoji = document.getElementById('emoji');
+const bannerChoices = document.getElementById('bannerChoices');
+const avatarChoices = document.getElementById('avatarChoices');
+const vbChoices = document.getElementById('vbChoices');
+const spChoices = document.getElementById('spChoices');
+const emojiChoices = document.getElementById('emojiChoices');
+const downloadAll = document.getElementById('downloadAll');
+const resetBtn = document.getElementById('reset');
+
+// Set max length from config
+msgInput.setAttribute('maxlength', CONFIG.MAX_INPUT_LENGTH);
+
+// Update character counter
+function updateCharCounter(){
+  if (!charCounter) return;
+  const len = msgInput.value.length;
+  const max = CONFIG.MAX_INPUT_LENGTH;
+  const remaining = max - len;
+  charCounter.textContent = `${len}/${max} characters`;
+  
+  if (len >= max) {
+    charCounter.className = 'char-counter limit';
+  } else if (remaining <= 5) {
+    charCounter.className = 'char-counter warning';
+  } else {
+    charCounter.className = 'char-counter';
+  }
+}
+
+banner.width = CONFIG.BANNER_WIDTH;
+banner.height = CONFIG.BANNER_HEIGHT;
+avatar.width = CONFIG.AVATAR_WIDTH;
+avatar.height = CONFIG.AVATAR_HEIGHT;
+vb.width = CONFIG.BACKGROUND_WIDTH;
+vb.height = CONFIG.BACKGROUND_HEIGHT;
+sharepoint.width = CONFIG.SHAREPOINT_WIDTH;
+sharepoint.height = CONFIG.SHAREPOINT_HEIGHT;
+emoji.width = CONFIG.EMOJI_WIDTH;
+emoji.height = CONFIG.EMOJI_HEIGHT;
+
+// Apply half-size CSS scaling (export size preserved via width/height attributes)
+function applyPreviewScaling(){
+  banner.style.width = (CONFIG.BANNER_WIDTH/2) + 'px';
+  banner.style.height = (CONFIG.BANNER_HEIGHT/2) + 'px';
+  avatar.style.width = (CONFIG.AVATAR_WIDTH/2) + 'px';
+  avatar.style.height = (CONFIG.AVATAR_HEIGHT/2) + 'px';
+  vb.style.width = (CONFIG.BACKGROUND_WIDTH/2) + 'px';
+  vb.style.height = (CONFIG.BACKGROUND_HEIGHT/2) + 'px';
+  sharepoint.style.width = (CONFIG.SHAREPOINT_WIDTH/2) + 'px';
+  sharepoint.style.height = (CONFIG.SHAREPOINT_HEIGHT/2) + 'px';
+  emoji.style.width = (CONFIG.EMOJI_WIDTH/2) + 'px';
+  emoji.style.height = (CONFIG.EMOJI_HEIGHT/2) + 'px';
+}
+applyPreviewScaling();
+
+// Distinct default selections for variety across types
+const defaultIndices = {
+  banner: 0,       // first banner
+  avatar: 1,       // second avatar
+  vb: 2,           // third meeting background
+  sharepoint: 3,   // fourth sharepoint background
+  emoji: 0         // only/transparent option
+};
+
+let selectedBg = {
+  banner: CONFIG.BACKGROUNDS.banner[defaultIndices.banner],
+  avatar: CONFIG.BACKGROUNDS.avatar[defaultIndices.avatar],
+  vb: CONFIG.BACKGROUNDS.vb[defaultIndices.vb],
+  sharepoint: CONFIG.BACKGROUNDS.sharepoint[defaultIndices.sharepoint],
+  emoji: CONFIG.BACKGROUNDS.emoji[defaultIndices.emoji]
+};
+
+let imageCache = {};
+let bgCache = {};
+
+// Carousel state indices per type
+const carouselIndex = { ...defaultIndices };
+
+function renderCarouselItem(type, container){
+  container.innerHTML = '';
+  const files = CONFIG.BACKGROUNDS[type];
+  const idx = carouselIndex[type];
+  const file = files[idx];
+  const div = document.createElement('div');
+  div.className = 'thumb selected';
+  if (file !== 'transparent') {
+    div.style.backgroundImage = `url(${CONFIG.BACKGROUND_FOLDER + file})`;
+  } else {
+    div.style.backgroundImage = 'linear-gradient(45deg,#1e293b 25%,transparent 25%,transparent 50%,#1e293b 50%,#1e293b 75%,transparent 75%,transparent)';
+    div.style.backgroundSize = '16px 16px';
+  }
+  div.title = file === 'transparent' ? 'Transparent' : file;
+  // Aspect width logic
+  const aspectMap = {
+    banner: CONFIG.BANNER_WIDTH / CONFIG.BANNER_HEIGHT,
+    avatar: CONFIG.AVATAR_WIDTH / CONFIG.AVATAR_HEIGHT,
+    vb: CONFIG.BACKGROUND_WIDTH / CONFIG.BACKGROUND_HEIGHT,
+    sharepoint: CONFIG.SHAREPOINT_WIDTH / CONFIG.SHAREPOINT_HEIGHT,
+    emoji: CONFIG.EMOJI_WIDTH / CONFIG.EMOJI_HEIGHT
+  };
+  const targetAspect = aspectMap[type] || (16/9);
+  const heightPx = 55;
+  let widthPx = Math.round(heightPx * targetAspect);
+  if (widthPx > 160) widthPx = 160;
+  div.style.width = widthPx + 'px';
+  div.style.height = heightPx + 'px';
+  div.addEventListener('click', () => {
+    // Advance index (loop) and update selection
+    const files = CONFIG.BACKGROUNDS[type];
+    carouselIndex[type] = (carouselIndex[type] + 1) % files.length;
+    selectedBg[type] = files[carouselIndex[type]];
+    renderCarouselItem(type, container);
+    renderAll();
+  });
+  container.appendChild(div);
+}
+
+function initCarousels(){
+  const carousels = document.querySelectorAll('.carousel');
+  carousels.forEach(c => {
+    const type = c.getAttribute('data-type');
+    const track = c.querySelector('.carousel-track');
+    renderCarouselItem(type, track);
+  });
+}
+initCarousels();
+
+function charToFileName(ch){
+  const lower = ch.toLowerCase();
+  if(/[a-z0-9]/.test(lower)) return lower + '.png';
+  if(CONFIG.SYMBOL_MAP[ch]) return CONFIG.SYMBOL_MAP[ch] + '.png';
+  return 'u' + ch.codePointAt(0).toString(16) + '.png';
+}
+
+function loadImage(path, cache, key){
+  return new Promise(res=>{
+    if(cache[key]) return res(cache[key]);
+    const img = new Image();
+    img.onload = ()=>{cache[key]=img;res(img)};
+    img.onerror=()=>{cache[key]=null;res(null)};
+    img.src = path;
+  });
+}
+
+async function loadLetter(ch){
+  const file = charToFileName(ch);
+  return await loadImage(CONFIG.LETTER_FOLDER + file, imageCache, ch);
+}
+
+async function loadBg(type){
+  const file = selectedBg[type];
+  if (file === 'transparent') return null; // sentinel: no background
+  return await loadImage(CONFIG.BACKGROUND_FOLDER + file, bgCache, file);
+}
+
+/* ============================================================
+   BACKGROUND BRIGHTNESS ADJUSTMENT
+   ============================================================ */
+let bgAdjust = CONFIG.BACKGROUND_BRIGHTNESS_DEFAULT;
+const bgAdjustSlider = document.getElementById('bgAdjust');
+const bgAdjustValueEl = document.getElementById('bgAdjustValue');
+const bgAdjustInlineInput = document.getElementById('bgAdjustValueInline');
+const tuningPanel = document.getElementById('tuningPanel');
+const tuneTypeSel = document.getElementById('tuneType');
+const tuneMinInput = document.getElementById('tuneMin');
+const tuneMinValue = document.getElementById('tuneMinValue');
+const tuneMinWidthInput = document.getElementById('tuneMinWidth');
+const tuneMinWidthValue = document.getElementById('tuneMinWidthValue');
+const tuneMinSpacingInput = document.getElementById('tuneMinSpacing');
+const tuneMinSpacingValue = document.getElementById('tuneMinSpacingValue');
+const tuneMinWordGapInput = document.getElementById('tuneMinWordGap');
+const tuneMinWordGapValue = document.getElementById('tuneMinWordGapValue');
+
+const tuneMidInput = document.getElementById('tuneMid');
+const tuneMidValue = document.getElementById('tuneMidValue');
+const tuneMidWidthInput = document.getElementById('tuneMidWidth');
+const tuneMidWidthValue = document.getElementById('tuneMidWidthValue');
+const tuneMidSpacingInput = document.getElementById('tuneMidSpacing');
+const tuneMidSpacingValue = document.getElementById('tuneMidSpacingValue');
+const tuneMidWordGapInput = document.getElementById('tuneMidWordGap');
+const tuneMidWordGapValue = document.getElementById('tuneMidWordGapValue');
+
+const tuneMaxInput = document.getElementById('tuneMax');
+const tuneMaxValue = document.getElementById('tuneMaxValue');
+const tuneMaxWidthInput = document.getElementById('tuneMaxWidth');
+const tuneMaxWidthValue = document.getElementById('tuneMaxWidthValue');
+const tuneMaxSpacingInput = document.getElementById('tuneMaxSpacing');
+const tuneMaxSpacingValue = document.getElementById('tuneMaxSpacingValue');
+const tuneMaxWordGapInput = document.getElementById('tuneMaxWordGap');
+const tuneMaxWordGapValue = document.getElementById('tuneMaxWordGapValue');
+const tuneReadout = document.getElementById('tuneReadout');
+
+function updateBgAdjustDisplay(){
+  const v = bgAdjust.toFixed(2);
+  if (bgAdjustValueEl) bgAdjustValueEl.textContent = v;
+  if (bgAdjustInlineInput && document.activeElement !== bgAdjustInlineInput) {
+    bgAdjustInlineInput.value = v;
+  }
+}
+
+// Handle both sliders in tuning panel (main slider inside panel)
+if (bgAdjustSlider) {
+  bgAdjustSlider.addEventListener('input', e => {
+    bgAdjust = parseFloat(e.target.value);
+    updateBgAdjustDisplay();
+    renderAll();
+  });
+  bgAdjustSlider.value = CONFIG.BACKGROUND_BRIGHTNESS_DEFAULT.toFixed(2);
+  bgAdjust = parseFloat(bgAdjustSlider.value);
+}
+// Also sync the inline number input in tuning panel
+if (bgAdjustInlineInput) {
+  bgAdjustInlineInput.value = CONFIG.BACKGROUND_BRIGHTNESS_DEFAULT.toFixed(2);
+}
+if (bgAdjustInlineInput) {
+  bgAdjustInlineInput.addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    if (!isNaN(v)) {
+      bgAdjust = v;
+      if (bgAdjustSlider && document.activeElement !== bgAdjustSlider) {
+        bgAdjustSlider.value = v.toFixed(2);
+      }
+      updateBgAdjustDisplay();
+      renderAll();
+    }
+  });
+  bgAdjustInlineInput.value = bgAdjust.toFixed(2);
+}
+updateBgAdjustDisplay();
+
+// Per-type runtime overrides used only for tuning; copy back into CONFIG by hand if desired.
+// Each scale tier (min/mid/max) can have its own max width, letter gap and word gap.
+const RUNTIME_TUNING = {
+  tiers: {
+    banner: {
+      min: { width: 0.9, spacing: -19, wordGap: 35 },
+      mid: { width: 0.94, spacing: -46, wordGap: 11 },
+      max: { width: 0.9, spacing: -73, wordGap: 20 }
+    },
+    vb: {
+      min: { width: 0.9, spacing: -36, wordGap: 21 },
+      mid: { width: 0.9, spacing: -30, wordGap: 20 },
+      max: { width: 0.94, spacing: -80, wordGap: 0 }
+    },
+    sharepoint: {
+      min: { width: 0.89, spacing: -56, wordGap: 31 },
+      mid: { width: 0.9, spacing: -40, wordGap: 20 },
+      max: { width: 0.93, spacing: -100, wordGap: 18 }
+    }
+  },
+  minScale: { ...CONFIG.MIN_SCALE_PER_TYPE },
+  midScale: { ...CONFIG.MID_SCALE_PER_TYPE },
+  maxScale: { ...CONFIG.MAX_SCALE_PER_TYPE }
+};
+
+function loadTuningUI(type){
+  if (!tuningPanel) return;
+  const tier = RUNTIME_TUNING.tiers[type];
+  tuneTypeSel.value = type;
+  const minS = RUNTIME_TUNING.minScale[type] ?? 0.7;
+  const midS = RUNTIME_TUNING.midScale[type] ?? 0.9;
+  const maxS = RUNTIME_TUNING.maxScale[type] ?? 1.0;
+  if (tuneMinInput) tuneMinInput.value = minS;
+  if (tuneMinValue) tuneMinValue.value = minS;
+  if (tuneMidInput) tuneMidInput.value = midS;
+  if (tuneMidValue) tuneMidValue.value = midS;
+  if (tuneMaxInput) tuneMaxInput.value = maxS;
+  if (tuneMaxValue) tuneMaxValue.value = maxS;
+  if (tier) {
+    if (tuneMinWidthInput) tuneMinWidthInput.value = Math.round((tier.min.width || 0.9) * 100);
+    if (tuneMinWidthValue) tuneMinWidthValue.value = Math.round((tier.min.width || 0.9) * 100);
+    if (tuneMinSpacingInput) tuneMinSpacingInput.value = tier.min.spacing ?? 0;
+    if (tuneMinSpacingValue) tuneMinSpacingValue.value = tier.min.spacing ?? 0;
+    if (tuneMinWordGapInput) tuneMinWordGapInput.value = tier.min.wordGap ?? 20;
+    if (tuneMinWordGapValue) tuneMinWordGapValue.value = tier.min.wordGap ?? 20;
+
+    if (tuneMidWidthInput) tuneMidWidthInput.value = Math.round((tier.mid.width || 0.9) * 100);
+    if (tuneMidWidthValue) tuneMidWidthValue.value = Math.round((tier.mid.width || 0.9) * 100);
+    if (tuneMidSpacingInput) tuneMidSpacingInput.value = tier.mid.spacing ?? 0;
+    if (tuneMidSpacingValue) tuneMidSpacingValue.value = tier.mid.spacing ?? 0;
+    if (tuneMidWordGapInput) tuneMidWordGapInput.value = tier.mid.wordGap ?? 20;
+    if (tuneMidWordGapValue) tuneMidWordGapValue.value = tier.mid.wordGap ?? 20;
+
+    if (tuneMaxWidthInput) tuneMaxWidthInput.value = Math.round((tier.max.width || 0.9) * 100);
+    if (tuneMaxWidthValue) tuneMaxWidthValue.value = Math.round((tier.max.width || 0.9) * 100);
+    if (tuneMaxSpacingInput) tuneMaxSpacingInput.value = tier.max.spacing ?? 0;
+    if (tuneMaxSpacingValue) tuneMaxSpacingValue.value = tier.max.spacing ?? 0;
+    if (tuneMaxWordGapInput) tuneMaxWordGapInput.value = tier.max.wordGap ?? 20;
+    if (tuneMaxWordGapValue) tuneMaxWordGapValue.value = tier.max.wordGap ?? 20;
+  }
+  if (tuneReadout) {
+    tuneReadout.textContent = `MIN/MID/MAX scale = ${RUNTIME_TUNING.minScale[type]}/${RUNTIME_TUNING.midScale[type]}/${RUNTIME_TUNING.maxScale[type]}`;
+  }
+  // Update active tier hint after UI loads
+  updateActiveTierHint(type);
+}
+
+function updateActiveTierHint(type){
+  if (!tuneReadout) return;
+  const txt = msgInput.value || '';
+  const raw = txt.trim();
+  if (!raw) {
+    tuneReadout.innerHTML = `MIN/MID/MAX scale = ${RUNTIME_TUNING.minScale[type]}/${RUNTIME_TUNING.midScale[type]}/${RUNTIME_TUNING.maxScale[type]}<br><span style="color:#93c5fd;">Type text to see active tier</span>`;
+    return;
+  }
+  
+  const lettersOnlyCount = raw.replace(/\s+/g,'').length;
+  const minScale = (RUNTIME_TUNING.minScale[type] ?? CONFIG.MIN_SCALE_PER_TYPE[type] ?? 0.6);
+  const midScale = (RUNTIME_TUNING.midScale[type] ?? CONFIG.MID_SCALE_PER_TYPE[type] ?? 0.8);
+  const maxScale = (RUNTIME_TUNING.maxScale[type] ?? CONFIG.MAX_SCALE_PER_TYPE[type] ?? 1.1);
+  let letterSize = CONFIG.LETTER_SIZE;
+  
+  if(type==='banner') {
+    letterSize = Math.floor(letterSize * CONFIG.BANNER_SCALE);
+  }
+  
+  const minSize = CONFIG.LETTER_SIZE * minScale;
+  const midSize = CONFIG.LETTER_SIZE * midScale;
+  const maxSize = CONFIG.LETTER_SIZE * maxScale;
+  
+  // Calculate width dimensions based on canvas type
+  const dimensions = {
+    banner: { w: CONFIG.BANNER_WIDTH, h: CONFIG.BANNER_HEIGHT },
+    vb: { w: CONFIG.BACKGROUND_WIDTH, h: CONFIG.BACKGROUND_HEIGHT },
+    sharepoint: { w: CONFIG.SHAREPOINT_WIDTH, h: CONFIG.SHAREPOINT_HEIGHT }
+  };
+  const { w, h } = dimensions[type] || dimensions.banner;
+  const baseMaxLineWidth = w * 0.9;
+  
+  // Simple width calculation
+  function calcWidth(chars, size, spacing, wordGap){
+    const drawable = chars.filter(c=>c!==' ');
+    const spaceCount = chars.length - drawable.length;
+    return drawable.length * size + (drawable.length-1)*spacing + spaceCount*(size*0.5 + spacing + wordGap);
+  }
+  
+  const initSpacing = (CONFIG.TYPE_SPACING[type] ?? 0);
+  const initWordGap = CONFIG.WORD_GAP;
+  
+  // Shrink to fit
+  let adjustIterations = 0;
+  let resized = true;
+  while(resized && adjustIterations < 50){
+    resized = false;
+    const chars = raw.split('');
+    if(calcWidth(chars, letterSize, initSpacing, initWordGap) > baseMaxLineWidth && letterSize > minSize){
+      letterSize = Math.max(minSize, letterSize - 4);
+      resized = true;
+      adjustIterations++;
+    }
+  }
+  
+  // Determine tier
+  const thresholds = CONFIG.SCALE_THRESHOLDS || { stayMax: 0.65, stayMid: 0.9 };
+  const widest = calcWidth(raw.split(''), letterSize, initSpacing, initWordGap);
+  const fill = widest / baseMaxLineWidth;
+  
+  let tierName = 'MAX';
+  let tierColor = '#10b981'; // green
+  if (fill > thresholds.stayMid) {
+    tierName = 'MIN';
+    tierColor = '#f59e0b'; // amber
+  } else if (fill > thresholds.stayMax) {
+    tierName = 'MID';
+    tierColor = '#3b82f6'; // blue
+  }
+  
+  tuneReadout.innerHTML = `MIN/MID/MAX scale = ${RUNTIME_TUNING.minScale[type]}/${RUNTIME_TUNING.midScale[type]}/${RUNTIME_TUNING.maxScale[type]}<br><span style="color:${tierColor}; font-weight:600;">⚡ Active: ${tierName} tier (${Math.round(fill*100)}% fill)</span>`;
+}
+
+function applyTuningChange(){
+  const type = tuneTypeSel ? tuneTypeSel.value : 'banner';
+  const tier = RUNTIME_TUNING.tiers[type];
+  if (tuneMinInput) {
+    const v = parseFloat(tuneMinInput.value) || parseFloat(tuneMinValue?.value) || 0.5;
+    RUNTIME_TUNING.minScale[type] = v;
+    if (tuneMinValue && document.activeElement !== tuneMinValue) tuneMinValue.value = v;
+  }
+  if (tuneMidInput) {
+    const v = parseFloat(tuneMidInput.value) || parseFloat(tuneMidValue?.value) || 0.8;
+    RUNTIME_TUNING.midScale[type] = v;
+    if (tuneMidValue && document.activeElement !== tuneMidValue) tuneMidValue.value = v;
+  }
+  if (tuneMaxInput) {
+    const v = parseFloat(tuneMaxInput.value) || parseFloat(tuneMaxValue?.value) || 1.0;
+    RUNTIME_TUNING.maxScale[type] = v;
+    if (tuneMaxValue && document.activeElement !== tuneMaxValue) tuneMaxValue.value = v;
+  }
+  if (tier) {
+    const readNum = (elText, elSlider, fallback) => {
+      const a = elSlider ? parseFloat(elSlider.value) : NaN;
+      const b = elText ? parseFloat(elText.value) : NaN;
+      return !isNaN(a) ? a : (!isNaN(b) ? b : fallback);
+    };
+    // Min tier
+    tier.min.width = (readNum(tuneMinWidthValue, tuneMinWidthInput, 90) / 100);
+    if (tuneMinWidthValue && document.activeElement !== tuneMinWidthValue) tuneMinWidthValue.value = Math.round(tier.min.width * 100);
+    tier.min.spacing = readNum(tuneMinSpacingValue, tuneMinSpacingInput, CONFIG.TYPE_SPACING[type] ?? 0);
+    if (tuneMinSpacingValue && document.activeElement !== tuneMinSpacingValue) tuneMinSpacingValue.value = tier.min.spacing;
+    tier.min.wordGap = readNum(tuneMinWordGapValue, tuneMinWordGapInput, CONFIG.WORD_GAP);
+    if (tuneMinWordGapValue && document.activeElement !== tuneMinWordGapValue) tuneMinWordGapValue.value = tier.min.wordGap;
+
+    // Mid tier
+    tier.mid.width = (readNum(tuneMidWidthValue, tuneMidWidthInput, 90) / 100);
+    if (tuneMidWidthValue && document.activeElement !== tuneMidWidthValue) tuneMidWidthValue.value = Math.round(tier.mid.width * 100);
+    tier.mid.spacing = readNum(tuneMidSpacingValue, tuneMidSpacingInput, CONFIG.TYPE_SPACING[type] ?? 0);
+    if (tuneMidSpacingValue && document.activeElement !== tuneMidSpacingValue) tuneMidSpacingValue.value = tier.mid.spacing;
+    tier.mid.wordGap = readNum(tuneMidWordGapValue, tuneMidWordGapInput, CONFIG.WORD_GAP);
+    if (tuneMidWordGapValue && document.activeElement !== tuneMidWordGapValue) tuneMidWordGapValue.value = tier.mid.wordGap;
+
+    // Max tier
+    tier.max.width = (readNum(tuneMaxWidthValue, tuneMaxWidthInput, 90) / 100);
+    if (tuneMaxWidthValue && document.activeElement !== tuneMaxWidthValue) tuneMaxWidthValue.value = Math.round(tier.max.width * 100);
+    tier.max.spacing = readNum(tuneMaxSpacingValue, tuneMaxSpacingInput, CONFIG.TYPE_SPACING[type] ?? 0);
+    if (tuneMaxSpacingValue && document.activeElement !== tuneMaxSpacingValue) tuneMaxSpacingValue.value = tier.max.spacing;
+    tier.max.wordGap = readNum(tuneMaxWordGapValue, tuneMaxWordGapInput, CONFIG.WORD_GAP);
+    if (tuneMaxWordGapValue && document.activeElement !== tuneMaxWordGapValue) tuneMaxWordGapValue.value = tier.max.wordGap;
+  }
+  loadTuningUI(type);
+  renderAll();
+  updateActiveTierHint(type);
+}
+
+if (tuningPanel) {
+  ['change','input'].forEach(evt => {
+    if (tuneTypeSel) tuneTypeSel.addEventListener('change', () => loadTuningUI(tuneTypeSel.value));
+    if (tuneMinInput) tuneMinInput.addEventListener(evt, applyTuningChange);
+    if (tuneMinValue) tuneMinValue.addEventListener(evt, () => { if (tuneMinInput) tuneMinInput.value = tuneMinValue.value; applyTuningChange(); });
+    if (tuneMidInput) tuneMidInput.addEventListener(evt, applyTuningChange);
+    if (tuneMidValue) tuneMidValue.addEventListener(evt, () => { if (tuneMidInput) tuneMidInput.value = tuneMidValue.value; applyTuningChange(); });
+    if (tuneMaxInput) tuneMaxInput.addEventListener(evt, applyTuningChange);
+    if (tuneMaxValue) tuneMaxValue.addEventListener(evt, () => { if (tuneMaxInput) tuneMaxInput.value = tuneMaxValue.value; applyTuningChange(); });
+
+    // Per-tier width/spacing/word-gap bindings
+    if (tuneMinWidthInput) tuneMinWidthInput.addEventListener(evt, applyTuningChange);
+    if (tuneMinWidthValue) tuneMinWidthValue.addEventListener(evt, () => { if (tuneMinWidthInput) tuneMinWidthInput.value = tuneMinWidthValue.value; applyTuningChange(); });
+    if (tuneMinSpacingInput) tuneMinSpacingInput.addEventListener(evt, applyTuningChange);
+    if (tuneMinSpacingValue) tuneMinSpacingValue.addEventListener(evt, () => { if (tuneMinSpacingInput) tuneMinSpacingInput.value = tuneMinSpacingValue.value; applyTuningChange(); });
+    if (tuneMinWordGapInput) tuneMinWordGapInput.addEventListener(evt, applyTuningChange);
+    if (tuneMinWordGapValue) tuneMinWordGapValue.addEventListener(evt, () => { if (tuneMinWordGapInput) tuneMinWordGapInput.value = tuneMinWordGapValue.value; applyTuningChange(); });
+
+    if (tuneMidWidthInput) tuneMidWidthInput.addEventListener(evt, applyTuningChange);
+    if (tuneMidWidthValue) tuneMidWidthValue.addEventListener(evt, () => { if (tuneMidWidthInput) tuneMidWidthInput.value = tuneMidWidthValue.value; applyTuningChange(); });
+    if (tuneMidSpacingInput) tuneMidSpacingInput.addEventListener(evt, applyTuningChange);
+    if (tuneMidSpacingValue) tuneMidSpacingValue.addEventListener(evt, () => { if (tuneMidSpacingInput) tuneMidSpacingInput.value = tuneMidSpacingValue.value; applyTuningChange(); });
+    if (tuneMidWordGapInput) tuneMidWordGapInput.addEventListener(evt, applyTuningChange);
+    if (tuneMidWordGapValue) tuneMidWordGapValue.addEventListener(evt, () => { if (tuneMidWordGapInput) tuneMidWordGapInput.value = tuneMidWordGapValue.value; applyTuningChange(); });
+
+    if (tuneMaxWidthInput) tuneMaxWidthInput.addEventListener(evt, applyTuningChange);
+    if (tuneMaxWidthValue) tuneMaxWidthValue.addEventListener(evt, () => { if (tuneMaxWidthInput) tuneMaxWidthInput.value = tuneMaxWidthValue.value; applyTuningChange(); });
+    if (tuneMaxSpacingInput) tuneMaxSpacingInput.addEventListener(evt, applyTuningChange);
+    if (tuneMaxSpacingValue) tuneMaxSpacingValue.addEventListener(evt, () => { if (tuneMaxSpacingInput) tuneMaxSpacingInput.value = tuneMaxSpacingValue.value; applyTuningChange(); });
+    if (tuneMaxWordGapInput) tuneMaxWordGapInput.addEventListener(evt, applyTuningChange);
+    if (tuneMaxWordGapValue) tuneMaxWordGapValue.addEventListener(evt, () => { if (tuneMaxWordGapInput) tuneMaxWordGapInput.value = tuneMaxWordGapValue.value; applyTuningChange(); });
+  });
+  loadTuningUI('banner');
+}
+
+// Toggle visibility with Alt+B
+document.addEventListener('keydown', e => {
+  if (e.altKey && e.key.toLowerCase() === 'b') {
+    if (tuningPanel) {
+      tuningPanel.style.display = tuningPanel.style.display === 'none' ? 'block' : 'none';
+      if (tuningPanel.style.display === 'block') loadTuningUI(tuneTypeSel ? tuneTypeSel.value : 'banner');
+    }
+  }
+});
+
+function applyBgAdjustment(ctx, w, h, type){
+  if (type === 'emoji') return; // never adjust emoji
+  if (bgAdjust === 1) return; // no change
+  ctx.save();
+  if (bgAdjust < 1) {
+    // Darken: overlay semi-transparent black; scale alpha to adjustment distance
+    const darkness = 1 - bgAdjust; // 0 -> 0, 0.5 -> 0.5
+    ctx.fillStyle = 'rgba(0,0,0,' + (darkness * 1.6).toFixed(3) + ')';
+    ctx.fillRect(0,0,w,h);
+  } else {
+    // Brighten: use screen blend with white
+    const lightness = bgAdjust - 1; // 0 -> 0, 0.5 -> 0.5
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = 'rgba(255,255,255,' + (lightness * 1.2).toFixed(3) + ')';
+    ctx.fillRect(0,0,w,h);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  ctx.restore();
+}
+
+async function drawMessage(ctx, w, h, text, type, opts={}){
+  ctx.clearRect(0,0,w,h);
+  const bg = await loadBg(type);
+  if(bg) ctx.drawImage(bg, 0, 0, w, h);
+  else if (!opts.noFill) { ctx.fillStyle='#1e293b'; ctx.fillRect(0,0,w,h); }
+  applyBgAdjustment(ctx, w, h, type);
+
+  let chars = [...text];
+  if (opts.singleChar) chars = chars.slice(0,1);
+  if (opts.maxChars) chars = chars.slice(0, opts.maxChars);
+  // Resolve base size and spacing for this type
+  let size = opts.letterSize || CONFIG.LETTER_SIZE;
+  // Avatar & emoji don't participate in the per-type tuning tiers,
+  // so guard against missing runtime tuning state here.
+  const spacing = (CONFIG.TYPE_SPACING[type] ?? 0);
+  const wordGap = CONFIG.WORD_GAP;
+
+  // Clamp size between min/max per type when not explicitly provided
+  if (!opts.lockScale) {
+    const minScale = (CONFIG.MIN_SCALE_PER_TYPE[type] ?? 0.6);
+    const maxScale = (CONFIG.MAX_SCALE_PER_TYPE[type] ?? 1.1);
+    const minSize = CONFIG.LETTER_SIZE * minScale;
+    const maxSize = CONFIG.LETTER_SIZE * maxScale;
+    size = Math.max(minSize, Math.min(maxSize, size));
+  }
+  await Promise.all(chars.map(c => loadLetter(c)));
+
+  // Exclude spaces from width, but treat each space as half letter for centering
+  const drawable = chars.filter(c=>c!==' ');
+  const spaceCount = chars.length - drawable.length;
+  const totalWidth = drawable.length * size + (drawable.length - 1) * spacing + spaceCount * (size * 0.5 + spacing + wordGap);
+  let x = (w - totalWidth) / 2;
+  const y = (h - size) / 2;
+
+  chars.forEach((c,i)=>{
+    if(c === ' '){
+      // Word gap plus half a letter width
+      x += (size * 0.5) + spacing + wordGap;
+      return;
+    }
+    const key = c.toLowerCase();
+    const img = imageCache[key] || imageCache[c];
+    if(img) ctx.drawImage(img, x, y, size, size);
+    else {
+      ctx.fillStyle= opts.fallbackFill || '#334155'; ctx.fillRect(x,y,size,size);
+      ctx.fillStyle= opts.fallbackText || '#fff'; ctx.font = (size*0.6) + 'px sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(c || '?', x+size/2, y+size/2);
+    }
+    if (opts.frame && i===0) {
+      ctx.strokeStyle = opts.frameColor || '#60a5fa';
+      ctx.lineWidth = opts.frameWidth || 4;
+      ctx.strokeRect(x, y, size, size);
+    }
+    x += size + spacing;
+  });
+}
+
+// Adaptive draw for banner, vb, sharepoint with special rules
+async function drawAdaptive(ctx, w, h, text, type){
+  ctx.clearRect(0,0,w,h);
+  const bg = await loadBg(type);
+  if(bg) ctx.drawImage(bg, 0, 0, w, h); else { ctx.fillStyle='#1e293b'; ctx.fillRect(0,0,w,h); }
+  applyBgAdjustment(ctx, w, h, type);
+
+  const raw = (text || '').trim();
+  if(!raw){ return; }
+
+  // Work directly from the full string so visual order
+  // always matches input order, with wrapping applied
+  // left-to-right across rows.
+  const lettersOnlyCount = raw.replace(/\s+/g,'').length;
+  let lines = [raw];
+
+  // Preload images for all chars (exclude spaces)
+  const allChars = lines.join('').replace(/\s+/g,'').split('');
+  await Promise.all(allChars.map(c=>loadLetter(c)));
+
+  // Base letter size with per‑type scale and short‑text boost
+  const minScale = (RUNTIME_TUNING.minScale[type] ?? CONFIG.MIN_SCALE_PER_TYPE[type] ?? 0.6);
+  const midScale = (RUNTIME_TUNING.midScale[type] ?? CONFIG.MID_SCALE_PER_TYPE[type] ?? 0.8);
+  const maxScale = (RUNTIME_TUNING.maxScale[type] ?? CONFIG.MAX_SCALE_PER_TYPE[type] ?? 1.1);
+  let letterSize = CONFIG.LETTER_SIZE;
+
+  if(type==='banner') {
+    letterSize = Math.floor(letterSize * CONFIG.BANNER_SCALE);
+  }
+
+  const minSize = CONFIG.LETTER_SIZE * minScale;
+  const midSize = CONFIG.LETTER_SIZE * midScale;
+  const maxSize = CONFIG.LETTER_SIZE * maxScale;
+
+  // Dynamic shrink-to-fit for any line exceeding max usable width
+  // (we'll later pick tier-specific width once we know which tier is used)
+  const baseMaxLineWidth = w * 0.9;
+  function lineWidth(chars, size, spacing, wordGap){
+    const drawable = chars.filter(c=>c!==' ');
+    const spaceCount = chars.length - drawable.length;
+    const sp = spacing;
+    let totalWidth = drawable.length * size + (drawable.length-1)*sp + spaceCount*(size*0.5 + sp + wordGap);
+    // Reduce spacing for letter 'i' - subtract spacing compensation for each 'i'
+    const iCount = chars.filter(c=>c.toLowerCase()==='i').length;
+    if(iCount > 0) {
+      totalWidth -= iCount * (size * 0.35); // reduce by 35% of letter size for each 'i'
+    }
+    return totalWidth;
+  }
+  // Use initial spacing/wordGap from config for preliminary sizing
+  const initSpacing = (CONFIG.TYPE_SPACING[type] ?? 0);
+  const initWordGap = CONFIG.WORD_GAP;
+  let adjustIterations = 0;
+  let resized = true;
+  while(resized){
+    resized = false;
+    for(const line of lines){
+      const chars = line.split('');
+      if(lineWidth(chars, letterSize, initSpacing, initWordGap) > baseMaxLineWidth && letterSize > minSize){
+        letterSize = Math.max(minSize, letterSize - 4); // shrink faster
+        resized = true;
+        adjustIterations++;
+        break;
+      }
+    }
+    if(adjustIterations > 50) break; // safety guard
+  }
+
+  // Decide whether to stay at max, drop to mid, or drop to min
+  // based on how full the widest line is relative to maxLineWidth.
+  const thresholds = CONFIG.SCALE_THRESHOLDS || { stayMax: 0.65, stayMid: 0.9 };
+  const allText = lines.join(' ');
+  const widest = allText
+    .split(/\n/)
+    .reduce((max, seg) => {
+      const wSeg = lineWidth(seg.split(''), letterSize, initSpacing, initWordGap);
+      return Math.max(max, wSeg);
+    }, 0);
+
+  const fill = widest / baseMaxLineWidth;
+  let tierName = 'max';
+  let effectiveSize = maxSize;
+  if (fill > thresholds.stayMid) {
+    tierName = 'min';
+    effectiveSize = minSize;
+  } else if (fill > thresholds.stayMax) {
+    tierName = 'mid';
+    effectiveSize = midSize;
+  }
+  letterSize = effectiveSize;
+
+  // Now pick spacing/word-gap/max-width from the chosen tier
+  const tierCfg = (RUNTIME_TUNING.tiers[type] && RUNTIME_TUNING.tiers[type][tierName]) || null;
+  const spacingTier = tierCfg ? tierCfg.spacing : (CONFIG.TYPE_SPACING[type] ?? 0);
+  const wordGapTier = tierCfg ? tierCfg.wordGap : CONFIG.WORD_GAP;
+  const maxLineWidth = tierCfg ? w * (tierCfg.width || 0.9) : baseMaxLineWidth;
+
+  // Generic word-wrapping: build new lines so characters
+  // are always drawn in strict input order, left-to-right,
+  // wrapping when the next word would exceed maxLineWidth.
+  const wordsForWrap = raw.split(/(\s+)/); // keep spaces as tokens
+  const wrappedLines = [];
+  let current = '';
+  for (const token of wordsForWrap) {
+    const test = current + token;
+    const width = lineWidth(test.split(''), letterSize, spacingTier, wordGapTier);
+    if (current && width > maxLineWidth) {
+      wrappedLines.push(current.trimEnd());
+      current = token.trimStart();
+    } else {
+      current = test;
+    }
+  }
+  if (current) {
+    wrappedLines.push(current.trimEnd());
+  }
+  lines = wrappedLines.length ? wrappedLines : lines;
+
+  const offsetAmplitude = 0; // no wave offset now
+  const totalHeight = lines.length * letterSize + (lines.length-1)* (letterSize*CONFIG.LINE_GAP_FACTOR);
+  // Re-center vertically (removed previous downward bias) and nudge slightly up (negative tweak) for better balance
+  let yStart = (h - totalHeight)/2 - (letterSize * -0);
+
+  lines.forEach(line=>{
+  const chars = line.split('');
+  const drawable = chars.filter(c=>c!==' ');
+  const spaceCount = chars.length - drawable.length;
+  let totalWidth = drawable.length * letterSize + (drawable.length-1)*spacingTier + spaceCount * (letterSize*0.5 + spacingTier + wordGapTier);
+    // Reduce spacing for letter 'i'
+    const iCount = chars.filter(c=>c.toLowerCase()==='i').length;
+    if(iCount > 0) {
+      totalWidth -= iCount * (letterSize * 0.35);
+    }
+    let x = Math.max(0, (w - totalWidth)/2); // clamp non-negative to avoid left overflow
+    const y = yStart;
+    // Removed alternating vertical offset; all words share same baseline
+    chars.forEach((c,i)=>{
+      if(c===' '){
+        // advance with extra word gap but no drawing
+        x += (letterSize * 0.5) + spacingTier + wordGapTier;
+        return;
+      }
+      // Apply reduced spacing before letter 'i' to center it
+      const prevChar = i > 0 ? chars[i-1] : null;
+      if(c.toLowerCase() === 'i' && prevChar && prevChar !== ' ') {
+        x -= (letterSize * 0.175); // move back half of the reduction
+      }
+      const yOffset = 0; // no vertical alternation
+      const img = imageCache[c.toLowerCase()] || imageCache[c];
+      if(img) ctx.drawImage(img, x, y + yOffset, letterSize, letterSize);
+      else {
+        ctx.fillStyle='#334155'; ctx.fillRect(x,y + yOffset,letterSize,letterSize);
+        ctx.fillStyle='#fff'; ctx.font=(letterSize*0.6)+'px sans-serif';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(c, x+letterSize/2, y+letterSize/2 + yOffset);
+      }
+      // Apply reduced spacing after letter 'i' (other half of reduction)
+      const currentSpacing = (c.toLowerCase() === 'i') ? spacingTier - (letterSize * 0.175) : spacingTier;
+      x += letterSize + currentSpacing;
+    });
+    yStart += letterSize + (letterSize*CONFIG.LINE_GAP_FACTOR);
+  });
+}
+
+async function renderAll(){
+  const txt = msgInput.value || '';
+  await drawAdaptive(banner.getContext('2d'), banner.width, banner.height, txt, 'banner');
+  await drawMessage(avatar.getContext('2d'), avatar.width, avatar.height, txt, 'avatar', {maxChars:2, letterSize: Math.floor(CONFIG.LETTER_SIZE * CONFIG.AVATAR_SCALE)});
+  await drawAdaptive(vb.getContext('2d'), vb.width, vb.height, txt, 'vb');
+  await drawAdaptive(sharepoint.getContext('2d'), sharepoint.width, sharepoint.height, txt, 'sharepoint');
+  await drawMessage(emoji.getContext('2d'), emoji.width, emoji.height, txt, 'emoji', {
+    singleChar:true,
+    noFill:true,
+    letterSize: Math.min(CONFIG.EMOJI_WIDTH, CONFIG.EMOJI_HEIGHT) * 0.8,
+    frame:false,
+    fallbackFill:'rgba(96,165,250,0.15)',
+    fallbackText:'#fff'
+  });
+}
+
+function downloadCanvas(canvas, name){
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = name;
+  a.click();
+}
+
+msgInput.addEventListener('input', () => {
+  updateCharCounter();
+  renderAll();
+  if (tuningPanel && tuningPanel.style.display !== 'none' && tuneTypeSel) {
+    updateActiveTierHint(tuneTypeSel.value);
+  }
+});
+downloadAll.addEventListener('click', async ()=>{
+  await renderAll();
+  downloadCanvas(avatar, 'avatar.png');
+  downloadCanvas(banner, 'banner.png');
+  downloadCanvas(vb, 'background.png');
+  downloadCanvas(sharepoint, 'sharepoint.png');
+  downloadCanvas(emoji, 'emoji.png');
+});
+resetBtn.addEventListener('click', ()=>{
+  msgInput.value = '';
+  updateCharCounter();
+  renderAll();
+});
+
+// Initialize character counter
+updateCharCounter();
+renderAll();
+</script>
+</body>
+</html>

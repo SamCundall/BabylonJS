@@ -1,0 +1,88 @@
+Letter / Symbol Image Naming Manifest
+====================================
+Folder: letters/
+
+Letters (lowercase a-z):
+ a.png
+ b.png
+ c.png
+ d.png
+ e.png
+ f.png
+ g.png
+ h.png
+ i.png
+ j.png
+ k.png
+ l.png
+ m.png
+ n.png
+ o.png
+ p.png
+ q.png
+ r.png
+ s.png
+ t.png
+ u.png
+ v.png
+ w.png
+ x.png
+ y.png
+ z.png
+
+Digits (0-9):
+ 0.png
+ 1.png
+ 2.png
+ 3.png
+ 4.png
+ 5.png
+ 6.png
+ 7.png
+ 8.png
+ 9.png
+
+Mapped Symbols:
+ # => hash.png
+ @ => at.png
+ ! => exclamation.png
+ ? => question.png
+ . => dot.png
+ , => comma.png
+ (space) => space.png  (use a transparent image or blank tile the same size)
+
+Fallback / Other Characters:
+ Any other character not in [a-z0-9] or SYMBOL_MAP will fall back to a generated filename:
+   'u' + <lowercase hex codepoint> + '.png'
+ Example: '*' (asterisk) has codepoint 42 decimal = 0x2a, so filename: u2a.png
+          '😊' (smiling face) codepoint U+1F60A -> filename: u1f60a.png
+          'É' (capital E with acute) U+00C9 -> filename: uc9.png
+
+Recommended To Provide (optional extras you might care about):
+ - Hyphen '-' => u2d.png (unless you add '-' to SYMBOL_MAP and name something like dash.png)
+ - Ampersand '&' => u26.png
+ - Colon ':' => u3a.png; Semicolon ';' => u3b.png
+ - Parentheses '(' => u28.png, ')' => u29.png
+ You only need these if you expect them in messages.
+
+Image Specifications:
+ - Each image should be 48x48 pixels (or larger but will be drawn scaled to 48x48).
+ - Transparent background (PNG) preferred.
+ - Consistent visual style.
+
+Avatar Limitation:
+ - Avatar canvas only renders first 3 characters of input string.
+
+Summary Checklist (required minimum set):
+ [ ] a-z
+ [ ] 0-9
+ [ ] hash.png
+ [ ] at.png
+ [ ] exclamation.png
+ [ ] question.png
+ [ ] dot.png
+ [ ] comma.png
+ [ ] space.png
+ [ ] u27.png (apostrophe ')
+
+Add any u<hex>.png files for extra characters you want supported.
