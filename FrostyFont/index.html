@@ -892,6 +892,9 @@ function applyBgAdjustment(ctx, w, h, type){
 
 async function drawMessage(ctx, w, h, text, type, opts={}){
   ctx.clearRect(0,0,w,h);
+  // Enable high-quality image rendering
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   const bg = await loadBg(type);
   if(bg) ctx.drawImage(bg, 0, 0, w, h);
   else if (!opts.noFill) { ctx.fillStyle='#1e293b'; ctx.fillRect(0,0,w,h); }
@@ -951,6 +954,9 @@ async function drawMessage(ctx, w, h, text, type, opts={}){
 // Adaptive draw for banner, vb, sharepoint with special rules
 async function drawAdaptive(ctx, w, h, text, type){
   ctx.clearRect(0,0,w,h);
+  // Enable high-quality image rendering
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   const bg = await loadBg(type);
   if(bg) ctx.drawImage(bg, 0, 0, w, h); else { ctx.fillStyle='#1e293b'; ctx.fillRect(0,0,w,h); }
   applyBgAdjustment(ctx, w, h, type);
@@ -1130,7 +1136,7 @@ async function renderAll(){
 
 function downloadCanvas(canvas, name){
   const a = document.createElement('a');
-  a.href = canvas.toDataURL('image/png');
+  a.href = canvas.toDataURL('image/png', 1.0); // Maximum quality
   a.download = name;
   a.click();
 }
