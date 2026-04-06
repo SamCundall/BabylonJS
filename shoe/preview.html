@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shoe Preview – Walk Test</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            outline: none;
+            touch-action: none;
+        }
+        #top-bar {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: rgba(22, 33, 62, 0.9);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid #0f3460;
+            z-index: 20;
+        }
+        #top-bar h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #e94560;
+        }
+        #top-bar a {
+            color: #e0e0e0;
+            text-decoration: none;
+            background: #0f3460;
+            border: 1px solid #e94560;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        #top-bar a:hover {
+            background: #e94560;
+            color: #fff;
+        }
+        #anim-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            background: rgba(22, 33, 62, 0.9);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            border-radius: 12px;
+            padding: 10px 16px;
+            border: 1px solid #0f3460;
+            z-index: 20;
+        }
+        .anim-btn {
+            background: #0f3460;
+            color: #e0e0e0;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .anim-btn:hover { background: #1a4a8a; }
+        .anim-btn.active {
+            background: #e94560;
+            color: #fff;
+            border-color: #e94560;
+        }
+        .anim-btn.char-toggle {
+            margin-left: 8px;
+            border-left: 1px solid #0f3460;
+            padding-left: 16px;
+        }
+        .anim-btn.char-toggle.char-hidden {
+            background: #8b2035;
+            color: #ff8a9b;
+            border-color: #e94560;
+        }
+        #loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(26,26,46,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            z-index: 100;
+            transition: opacity 0.5s;
+        }
+        #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+        #loading-spinner {
+            width: 48px; height: 48px;
+            border: 4px solid #0f3460;
+            border-top-color: #e94560;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading-text { font-size: 15px; color: #888; }
+        #design-label {
+            position: absolute;
+            top: 60px; left: 20px;
+            font-size: 12px;
+            color: #888;
+            z-index: 20;
+        }
+        /* Adjustment Panel */
+        #adjust-panel {
+            position: absolute;
+            top: 56px; right: 16px;
+            width: 260px;
+            background: rgba(22, 33, 62, 0.95);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            border: 1px solid #0f3460;
+            border-radius: 10px;
+            padding: 14px;
+            z-index: 25;
+            font-size: 12px;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+        #adjust-panel h3 {
+            font-size: 13px;
+            color: #e94560;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .adj-group {
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #0f346040;
+        }
+        .adj-group label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3px;
+            color: #aaa;
+        }
+        .adj-group label span.val {
+            color: #e94560;
+            font-family: monospace;
+            font-weight: 600;
+            min-width: 50px;
+            text-align: right;
+        }
+        .adj-group input[type=range] {
+            width: 100%;
+            accent-color: #e94560;
+            height: 4px;
+            margin-bottom: 6px;
+            cursor: pointer;
+        }
+        #btn-copy-values, #btn-toggle-adjust {
+            background: #e94560;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #btn-copy-values:hover, #btn-toggle-adjust:hover {
+            background: #ff5a75;
+        }
+        #btn-toggle-adjust {
+            position: absolute;
+            top: 56px; right: 16px;
+            z-index: 24;
+            background: #0f3460;
+            border: 1px solid #e94560;
+            padding: 6px 12px;
+        }
+        #copy-feedback {
+            color: #4caf50;
+            font-size: 11px;
+            margin-top: 6px;
+            display: none;
+        }
+        #adjust-panel.hidden { display: none; }
+        #btn-toggle-adjust.initially-hidden { display: none; }
+        #btn-close-adjust {
+            background: #0f3460;
+            color: #e94560;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 4px;
+        }
+        #adj-model-color {
+            width: 100%;
+            height: 32px;
+            border: 1px solid #0f3460;
+            border-radius: 6px;
+            cursor: pointer;
+            background: none;
+            padding: 2px;
+        }
+        /* Camera Panel */
+        #btn-toggle-camera-preview {
+            position: absolute;
+            top: 56px; left: 16px;
+            z-index: 24;
+            background: #0f3460;
+            color: #e0e0e0;
+            border: 1px solid #e94560;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #btn-toggle-camera-preview:hover { background: #e94560; color: #fff; }
+        #camera-panel-preview {
+            position: absolute;
+            top: 56px; left: 16px;
+            width: 220px;
+            background: rgba(22, 33, 62, 0.95);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            border: 1px solid #0f3460;
+            border-radius: 10px;
+            padding: 12px;
+            z-index: 25;
+            font-size: 12px;
+        }
+        #camera-panel-preview.hidden { display: none; }
+        #camera-panel-preview .cam-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #e94560;
+            font-weight: 600;
+        }
+        #camera-panel-preview .cam-header button {
+            background: #0f3460;
+            color: #e0e0e0;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: 4px;
+        }
+        #camera-panel-preview .cam-header button:hover { background: #e94560; color: #fff; }
+        .pcam-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(15, 52, 96, 0.3);
+            color: #aaa;
+        }
+        .pcam-val {
+            color: #e94560;
+            font-family: monospace;
+            font-weight: 600;
+        }
+        #pcam-copy-feedback {
+            color: #4caf50;
+            font-size: 11px;
+            margin-top: 6px;
+            display: none;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="top-bar">
+        <h1>👟 Shoe Preview Walk Test</h1>
+        <a href="#" onclick="window.close(); window.location.href='index.html'; return false;">← Back to Customizer</a>
+    </div>
+
+    <div id="design-label"></div>
+
+    <button id="btn-toggle-camera-preview">🎥 Camera</button>
+
+    <div id="camera-panel-preview" class="hidden">
+        <div class="cam-header">
+            <span>🎥 Camera Position</span>
+            <span>
+                <button id="pcam-copy">📋 Copy</button>
+                <button id="pcam-reset">🔄 Reset</button>
+                <button id="pcam-close" style="color:#e94560;font-size:14px">✕</button>
+            </span>
+        </div>
+        <div class="pcam-row"><span>Alpha</span><span class="pcam-val" id="pcam-alpha">1.57</span></div>
+        <div class="pcam-row"><span>Beta</span><span class="pcam-val" id="pcam-beta">0.79</span></div>
+        <div class="pcam-row"><span>Radius</span><span class="pcam-val" id="pcam-radius">3.00</span></div>
+        <div class="pcam-row"><span>Target X</span><span class="pcam-val" id="pcam-tx">0.00</span></div>
+        <div class="pcam-row"><span>Target Y</span><span class="pcam-val" id="pcam-ty">1.00</span></div>
+        <div class="pcam-row"><span>Target Z</span><span class="pcam-val" id="pcam-tz">0.00</span></div>
+        <div id="pcam-copy-feedback">Copied!</div>
+    </div>
+
+    <button id="btn-toggle-adjust" class="initially-hidden">🔧 Adjust Shoe Fit</button>
+
+    <div id="adjust-panel">
+        <h3>Shoe Adjustment
+            <span>
+                <button id="btn-copy-values">📋 Copy</button>
+                <button id="btn-close-adjust">✕</button>
+            </span>
+        </h3>
+        <div class="adj-group">
+            <label for="adj-scale">Scale <span class="val" id="v-scale">0.19</span></label>
+            <input type="range" id="adj-scale" min="0.05" max="2" step="0.01" value="0.19">
+        </div>
+        <div class="adj-group">
+            <label for="adj-px">Position X <span class="val" id="v-px">0.00</span></label>
+            <input type="range" id="adj-px" min="-1" max="1" step="0.01" value="0">
+        </div>
+        <div class="adj-group">
+            <label for="adj-py">Position Y <span class="val" id="v-py">-0.01</span></label>
+            <input type="range" id="adj-py" min="-1" max="1" step="0.01" value="-0.01">
+        </div>
+        <div class="adj-group">
+            <label for="adj-pz">Position Z <span class="val" id="v-pz">0.08</span></label>
+            <input type="range" id="adj-pz" min="-1" max="1" step="0.01" value="0.08">
+        </div>
+        <div class="adj-group">
+            <label for="adj-rx">Rotation X (deg) <span class="val" id="v-rx">2</span></label>
+            <input type="range" id="adj-rx" min="-180" max="180" step="1" value="2">
+        </div>
+        <div class="adj-group">
+            <label for="adj-ry">Rotation Y (deg) <span class="val" id="v-ry">87</span></label>
+            <input type="range" id="adj-ry" min="-180" max="180" step="1" value="87">
+        </div>
+        <div class="adj-group">
+            <label for="adj-rz">Rotation Z (deg) <span class="val" id="v-rz">1</span></label>
+            <input type="range" id="adj-rz" min="-180" max="180" step="1" value="1">
+        </div>
+        <div class="adj-group">
+            <label for="adj-foot">Show Character <span class="val" id="v-foot">ON</span></label>
+            <input type="range" id="adj-foot" min="0" max="1" step="1" value="1">
+        </div>
+        <div class="adj-group">
+            <label for="adj-model-color">Model Color</label>
+            <input type="color" id="adj-model-color" value="#4a4a5a" title="Character body color">
+        </div>
+        <div id="copy-feedback">Copied to clipboard!</div>
+    </div>
+
+    <div id="anim-bar">
+        <button class="anim-btn active" data-anim="idle">🧍 Idle</button>
+        <button class="anim-btn" data-anim="walk">🚶 Walk</button>
+        <button class="anim-btn" data-anim="run">🏃 Run</button>
+        <button class="anim-btn" data-anim="left">⬅ Strafe L</button>
+        <button class="anim-btn" data-anim="right">➡ Strafe R</button>
+        <button class="anim-btn" data-anim="blend">🔀 Blend</button>
+        <button class="anim-btn" data-anim="jump">🦘 Jump</button>
+        <button class="anim-btn char-toggle" id="btn-char-toggle">👤 Character</button>
+    </div>
+
+    <div id="loading-overlay">
+        <div id="loading-spinner"></div>
+        <div id="loading-text">Loading character model...</div>
+    </div>
+
+    <script>
+    (function() {
+        "use strict";
+
+        const ZONE_NAMES = ["laces","mesh","caps","inner","sole","stripes","band","patch"];
+        const CHARACTER_URL = "https://assets.babylonjs.com/meshes/";
+        const CHARACTER_FILE = "dummy3.babylon";
+
+        const canvas = document.getElementById("renderCanvas");
+        const loadingOverlay = document.getElementById("loading-overlay");
+        const loadingText = document.getElementById("loading-text");
+        const designLabel = document.getElementById("design-label");
+
+        // Read design from localStorage
+        let designState = null;
+        try {
+            const raw = localStorage.getItem("shoeDesign");
+            if (raw) designState = JSON.parse(raw);
+        } catch(e) {}
+
+        if (designState) {
+            designLabel.textContent = "Design: " + (designState.name || "Custom");
+        } else {
+            designLabel.textContent = "No custom design – showing default shoe colors";
+        }
+
+        // ── Engine & Scene ─────────────────────────────────────
+        BABYLON.Animation.AllowMatricesInterpolation = true;
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+        const scene = new BABYLON.Scene(engine);
+        scene.clearColor = new BABYLON.Color4(0.08, 0.08, 0.14, 1);
+
+        const camera = new BABYLON.ArcRotateCamera("cam",
+            Math.PI / 2, Math.PI / 4, 3,
+            new BABYLON.Vector3(0, 1, 0), scene);
+         const PREVIEW_DEFAULT_CAMERA = {
+            alpha: 2.5,
+            beta: 1.2,
+            radius: 1.5,
+            target: new BABYLON.Vector3(0,0,0)
+        };
+        camera.attachControl(canvas, true);
+        camera.lowerRadiusLimit = 1.5;
+        camera.upperRadiusLimit = 10;
+        camera.wheelDeltaPercentage = 0.01;
+
+        const hemiLight = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0, 1, 0), scene);
+        hemiLight.intensity = 0.6;
+        hemiLight.specular = BABYLON.Color3.Black();
+
+        const dirLight = new BABYLON.DirectionalLight("dir", new BABYLON.Vector3(0, -0.5, -1.0), scene);
+        dirLight.position = new BABYLON.Vector3(0, 5, 5);
+        dirLight.intensity = 0.8;
+
+        const shadowGen = new BABYLON.ShadowGenerator(1024, dirLight);
+        shadowGen.useBlurExponentialShadowMap = true;
+        shadowGen.blurKernel = 32;
+
+        // ── State ──────────────────────────────────────────────
+        let skeleton = null;
+        let animRanges = {};
+        let currentAnim = "idle";
+        let shoeZoneMaterials = {};  // zone name → material
+        let leftAttachNode = null;
+        let rightAttachNode = null;
+        let characterMeshes = [];  // store character meshes for color changes
+
+        // ── Load Character ─────────────────────────────────────
+        loadingText.textContent = "Loading character model...";
+
+        BABYLON.SceneLoader.ImportMesh("", CHARACTER_URL, CHARACTER_FILE, scene,
+            function(newMeshes, particleSystems, skeletons) {
+                skeleton = skeletons[0];
+                characterMeshes = newMeshes.filter(m => m.material);
+
+                // Add shadow casters
+                newMeshes.forEach(m => {
+                    shadowGen.addShadowCaster(m, true);
+                    m.receiveShadows = false;
+                });
+
+                // Environment
+                const helper = scene.createDefaultEnvironment({
+                    enableGroundShadow: true
+                });
+                if (helper) {
+                    helper.setMainColor(BABYLON.Color3.Gray());
+                    helper.ground.position.y += 0.01;
+                }
+
+                // Skeleton animation setup
+                skeleton.animationPropertiesOverride = new BABYLON.AnimationPropertiesOverride();
+                skeleton.animationPropertiesOverride.enableBlending = true;
+                skeleton.animationPropertiesOverride.blendingSpeed = 0.05;
+                skeleton.animationPropertiesOverride.loopMode = 1;
+
+                animRanges = {
+                    idle:  skeleton.getAnimationRange("YBot_Idle"),
+                    walk:  skeleton.getAnimationRange("YBot_Walk"),
+                    run:   skeleton.getAnimationRange("YBot_Run"),
+                    left:  skeleton.getAnimationRange("YBot_LeftStrafeWalk"),
+                    right: skeleton.getAnimationRange("YBot_RightStrafeWalk")
+                };
+
+                // Start idle
+                if (animRanges.idle) {
+                    scene.beginAnimation(skeleton, animRanges.idle.from, animRanges.idle.to, true);
+                }
+
+                // Log available bones for debugging
+                console.log("=== Skeleton Bones ===");
+                skeleton.bones.forEach((b, i) => console.log(`  [${i}] ${b.name}`));
+
+                // Now load the shoe and attach
+                loadingText.textContent = "Loading shoe model...";
+                loadShoeOnCharacter();
+            },
+            function(evt) {
+                if (evt.lengthComputable) {
+                    const pct = Math.round(evt.loaded / evt.total * 100);
+                    loadingText.textContent = "Loading character... " + pct + "%";
+                }
+            },
+            function(scene, msg, ex) {
+                loadingText.textContent = "Failed to load character model.";
+                console.error("Character load error:", msg, ex);
+            }
+        );
+
+        // ── Load Shoe & Attach to Feet ─────────────────────────
+        function loadShoeOnCharacter() {
+            BABYLON.SceneLoader.ImportMesh("", "./", "shoe.gltf", scene,
+                function(shoeMeshes) {
+                    console.log("=== Shoe meshes loaded for preview ===");
+                    shoeMeshes.forEach((m, i) => {
+                        console.log(`  [${i}] "${m.name}" mat: ${m.material ? m.material.name : 'none'}`);
+                    });
+
+                    // Find skeleton foot bones
+                    const leftFootBone = skeleton.bones.find(b =>
+                        b.name.toLowerCase().includes("leftfoot") ||
+                        b.name.toLowerCase().includes("left_foot") ||
+                        b.name.toLowerCase().includes("l_foot")
+                    );
+                    const rightFootBone = skeleton.bones.find(b =>
+                        b.name.toLowerCase().includes("rightfoot") ||
+                        b.name.toLowerCase().includes("right_foot") ||
+                        b.name.toLowerCase().includes("r_foot")
+                    );
+
+                    console.log("Left foot bone:", leftFootBone ? leftFootBone.name : "NOT FOUND");
+                    console.log("Right foot bone:", rightFootBone ? rightFootBone.name : "NOT FOUND");
+
+                    // Find shoe root
+                    const shoeRoot = shoeMeshes.find(m => m.name === "__root__") || shoeMeshes[0];
+
+                    // Build zone material map from the loaded shoe
+                    const allMats = {};
+                    scene.materials.forEach(mat => { allMats[mat.name.toLowerCase()] = mat; });
+                    ZONE_NAMES.forEach(name => {
+                        if (allMats[name]) shoeZoneMaterials[name] = allMats[name];
+                    });
+
+                    // Apply design colors
+                    applyDesignToShoe();
+
+                    // Shoe scale and positioning (adjust to character foot size)
+                    // The Y-Bot character is ~1.7 units tall, shoe model is ~0.7 units long
+                    const shoeScale = 0.19;
+
+                    if (leftFootBone) {
+                        leftAttachNode = attachShoeToFoot(shoeMeshes, shoeRoot, leftFootBone, shoeScale, false);
+                    }
+
+                    if (rightFootBone) {
+                        // Clone the shoe for the right foot
+                        rightAttachNode = cloneShoeToFoot(shoeMeshes, rightFootBone, shoeScale, true);
+                    }
+
+                    // Add shadow casters for shoes
+                    scene.meshes.forEach(m => {
+                        if (m.name && (m.name.includes("shoe") || m.name.includes("Shoe"))) {
+                            shadowGen.addShadowCaster(m, true);
+                        }
+                    });
+
+                    // Make character materials editable (clone & unfreeze)
+                    prepareCharacterMaterials();
+
+                    hideLoading();
+                },
+                null,
+                function(scene, msg, ex) {
+                    loadingText.textContent = "Failed to load shoe.gltf";
+                    console.error("Shoe load error:", msg, ex);
+                }
+            );
+        }
+
+        function attachShoeToFoot(meshes, rootMesh, bone, scale, mirror) {
+            // Create a transform node attached to the bone
+            const attachNode = new BABYLON.TransformNode("shoe_left_attach", scene);
+            attachNode.attachToBone(bone, bone.getTransformNode() || scene.meshes[0]);
+
+            // Position/rotation offsets to align shoe with foot
+            attachNode.scaling = new BABYLON.Vector3(scale, scale, scale);
+            attachNode.position = new BABYLON.Vector3(0, -0.01, 0.08);
+            attachNode.rotation = new BABYLON.Vector3(2 * Math.PI / 180, 87 * Math.PI / 180, 1 * Math.PI / 180);
+
+            // Parent all shoe meshes to this node
+            meshes.forEach(m => {
+                if (m.name === "__root__" || m === rootMesh) {
+                    m.parent = attachNode;
+                }
+            });
+
+            return attachNode;
+        }
+
+        function cloneShoeToFoot(originalMeshes, bone, scale, mirror) {
+            const attachNode = new BABYLON.TransformNode("shoe_right_attach", scene);
+            attachNode.attachToBone(bone, bone.getTransformNode() || scene.meshes[0]);
+
+            attachNode.scaling = new BABYLON.Vector3(mirror ? -scale : scale, scale, scale);
+            attachNode.position = new BABYLON.Vector3(0, -0.01, 0.08);
+            attachNode.rotation = new BABYLON.Vector3(2 * Math.PI / 180, 87 * Math.PI / 180, 1 * Math.PI / 180);
+
+            // Clone meshes
+            originalMeshes.forEach(m => {
+                if (m.getClassName() === "Mesh" && m.geometry) {
+                    const clone = m.clone("right_" + m.name, null);
+                    if (clone) {
+                        clone.parent = attachNode;
+                        clone.isPickable = false;
+                        // Share the same material (so color changes affect both)
+                        clone.material = m.material;
+                        if (m.subMeshes) {
+                            // Clone sub-meshes to preserve multi-material
+                            clone.subMeshes = [];
+                            m.subMeshes.forEach(sm => {
+                                new BABYLON.SubMesh(
+                                    sm.materialIndex,
+                                    sm.verticesStart,
+                                    sm.verticesCount,
+                                    sm.indexStart,
+                                    sm.indexCount,
+                                    clone
+                                );
+                            });
+                        }
+                    }
+                }
+            });
+
+            return attachNode;
+        }
+
+        function applyDesignToShoe() {
+            if (!designState || !designState.zones) return;
+
+            Object.keys(designState.zones).forEach(zoneName => {
+                const mat = shoeZoneMaterials[zoneName];
+                if (!mat) return;
+                const cfg = designState.zones[zoneName];
+
+                if (cfg.color) {
+                    const hex = cfg.color.replace("#", "");
+                    const r = parseInt(hex.substring(0,2), 16) / 255;
+                    const g = parseInt(hex.substring(2,4), 16) / 255;
+                    const b = parseInt(hex.substring(4,6), 16) / 255;
+                    mat.albedoColor = new BABYLON.Color3(r, g, b);
+                }
+            });
+        }
+
+        function prepareCharacterMaterials() {
+            // Clone character materials so we can modify color/opacity
+            console.log("=== Preparing Character Materials ===");
+            characterMeshes.forEach((m, i) => {
+                if (!m.material) return;
+                const mat = m.material;
+                const matType = mat.getClassName();
+                console.log(`  [${i}] "${m.name}" mat: "${mat.name}" type: ${matType} frozen: ${mat.isFrozen}`);
+
+                // Clone to get independent editable copy
+                const cloned = mat.clone(mat.name + "_edit");
+                if (cloned) {
+                    if (cloned.isFrozen) cloned.unfreeze();
+                    m.material = cloned;
+                } else if (mat.isFrozen) {
+                    mat.unfreeze();
+                }
+            });
+        }
+
+        // ── Animation Controls ─────────────────────────────────
+        const animButtons = document.querySelectorAll(".anim-btn");
+        animButtons.forEach(btn => {
+            btn.addEventListener("click", function() {
+                const animName = this.dataset.anim;
+                playAnimation(animName);
+
+                // Update active button
+                animButtons.forEach(b => b.classList.remove("active"));
+                this.classList.add("active");
+            });
+        });
+
+        function playAnimation(name) {
+            if (!skeleton) return;
+            currentAnim = name;
+
+            scene.stopAnimation(skeleton);
+
+            if (name === "blend") {
+                if (animRanges.walk && animRanges.left) {
+                    const walkAnim = scene.beginWeightedAnimation(skeleton,
+                        animRanges.walk.from, animRanges.walk.to, 0.5, true);
+                    const leftAnim = scene.beginWeightedAnimation(skeleton,
+                        animRanges.left.from, animRanges.left.to, 0.5, true);
+                    walkAnim.syncWith(null);
+                    leftAnim.syncWith(walkAnim);
+                }
+                return;
+            }
+
+            if (name === "jump") {
+                playJumpAnimation();
+                return;
+            }
+
+            const range = animRanges[name];
+            if (range) {
+                scene.beginAnimation(skeleton, range.from, range.to, true);
+            }
+        }
+
+        // ── Procedural Jump Animation ──────────────────────────
+        function playJumpAnimation() {
+            // Play idle pose as the base
+            if (animRanges.idle) {
+                scene.beginAnimation(skeleton, animRanges.idle.from, animRanges.idle.to, true);
+            }
+
+            // Find the character root mesh to animate vertically
+            const rootMesh = scene.meshes.find(m => m.skeleton === skeleton) || scene.meshes[0];
+            if (!rootMesh) return;
+
+            const jumpAnim = new BABYLON.Animation(
+                "jumpAnim", "position.y", 60,
+                BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+            );
+
+            const baseY = rootMesh.position.y;
+            jumpAnim.setKeys([
+                { frame: 0,  value: baseY },
+                { frame: 10, value: baseY - 0.05 },  // crouch
+                { frame: 25, value: baseY + 0.6 },   // apex
+                { frame: 40, value: baseY },          // land
+                { frame: 50, value: baseY - 0.03 },   // absorb
+                { frame: 60, value: baseY }           // recover
+            ]);
+
+            const ease = new BABYLON.SineEase();
+            ease.setEasingMode(BABYLON.EasingFunction.EASINGMODE_EASEINOUT);
+            jumpAnim.setEasingFunction(ease);
+
+            rootMesh.animations = rootMesh.animations || [];
+            rootMesh.animations.push(jumpAnim);
+            scene.beginAnimation(rootMesh, 0, 60, true);
+        }
+
+        // ── Character Visibility Toggle ──────────────────────
+        let characterVisible = true;
+        const btnCharToggle = document.getElementById("btn-char-toggle");
+
+        function setCharacterVisibility(visible) {
+            characterVisible = visible;
+            characterMeshes.forEach(m => { m.visibility = visible ? 1 : 0; });
+            // Sync adjustment panel slider
+            if (sliders && sliders.foot) {
+                sliders.foot.value = visible ? 1 : 0;
+                valLabels.foot.textContent = visible ? "ON" : "OFF";
+            }
+            // Update toggle button appearance
+            if (visible) {
+                btnCharToggle.classList.remove("char-hidden");
+                btnCharToggle.textContent = "👤 Character";
+            } else {
+                btnCharToggle.classList.add("char-hidden");
+                btnCharToggle.textContent = "👤 Hidden";
+            }
+        }
+
+        btnCharToggle.addEventListener("click", () => {
+            setCharacterVisibility(!characterVisible);
+        });
+
+        // ── Load Extra Animations from animations/ folder ──────
+        async function loadExtraAnimations() {
+            try {
+                const resp = await fetch("animations/index.json?_=" + Date.now());
+                if (!resp.ok) return;
+                const manifest = await resp.json();
+                const animBar = document.getElementById("anim-bar");
+                const charToggleBtn = document.getElementById("btn-char-toggle");
+
+                for (const entry of manifest) {
+                    try {
+                        const container = await BABYLON.SceneLoader.LoadAssetContainerAsync(
+                            "animations/", entry.file, scene
+                        );
+                        // Merge animations into the scene
+                        container.animationGroups.forEach(ag => {
+                            ag.stop();
+                            scene.addAnimationGroup(ag);
+                        });
+
+                        // Register as a named animation accessible via button
+                        const animKey = entry.name.toLowerCase().replace(/\s+/g, "_");
+                        animRanges[animKey] = { animationGroup: container.animationGroups[0] };
+
+                        // Create button (insert before the character toggle)
+                        const btn = document.createElement("button");
+                        btn.className = "anim-btn";
+                        btn.dataset.anim = animKey;
+                        btn.textContent = (entry.icon || "▶") + " " + entry.name;
+                        animBar.insertBefore(btn, charToggleBtn);
+
+                        btn.addEventListener("click", function() {
+                            // Stop all animation groups first
+                            scene.animationGroups.forEach(ag => ag.stop());
+                            scene.stopAnimation(skeleton);
+
+                            const ag = animRanges[animKey].animationGroup;
+                            if (ag) {
+                                ag.start(true);
+                            }
+                            currentAnim = animKey;
+                            document.querySelectorAll(".anim-btn").forEach(b => b.classList.remove("active"));
+                            this.classList.add("active");
+                        });
+
+                        console.log("Loaded extra animation:", entry.name, "from", entry.file);
+                    } catch (e) {
+                        console.warn("Could not load animation:", entry.file, e);
+                    }
+                }
+            } catch (e) {
+                // No animations/index.json — that's fine, skip silently
+            }
+        }
+
+        // Load extra animations after character is ready
+        loadExtraAnimations();
+
+        // ── Utilities ──────────────────────────────────────────
+        function hideLoading() {
+            loadingOverlay.classList.add("hidden");
+            setTimeout(() => { loadingOverlay.style.display = "none"; }, 600);
+        }
+
+        // ── Render Loop ────────────────────────────────────────
+        engine.runRenderLoop(() => scene.render());
+        window.addEventListener("resize", () => engine.resize());
+
+        // ── Camera Panel Controls ───────────────────────────────
+        const camPanelPrev = document.getElementById("camera-panel-preview");
+        const btnToggleCamPrev = document.getElementById("btn-toggle-camera-preview");
+        const btnCloseCamPrev = document.getElementById("pcam-close");
+        const btnCopyCamPrev = document.getElementById("pcam-copy");
+        const btnResetCamPrev = document.getElementById("pcam-reset");
+        const pcamFeedback = document.getElementById("pcam-copy-feedback");
+
+        const pcamLabels = {
+            alpha:  document.getElementById("pcam-alpha"),
+            beta:   document.getElementById("pcam-beta"),
+            radius: document.getElementById("pcam-radius"),
+            tx:     document.getElementById("pcam-tx"),
+            ty:     document.getElementById("pcam-ty"),
+            tz:     document.getElementById("pcam-tz")
+        };
+
+        btnToggleCamPrev.addEventListener("click", () => {
+            camPanelPrev.classList.remove("hidden");
+            btnToggleCamPrev.style.display = "none";
+        });
+        btnCloseCamPrev.addEventListener("click", () => {
+            camPanelPrev.classList.add("hidden");
+            btnToggleCamPrev.style.display = "";
+        });
+        btnResetCamPrev.addEventListener("click", () => {
+            camera.alpha = PREVIEW_DEFAULT_CAMERA.alpha;
+            camera.beta = PREVIEW_DEFAULT_CAMERA.beta;
+            camera.radius = PREVIEW_DEFAULT_CAMERA.radius;
+            camera.target = PREVIEW_DEFAULT_CAMERA.target.clone();
+        });
+        btnCopyCamPrev.addEventListener("click", () => {
+            const vals = {
+                alpha: parseFloat(camera.alpha.toFixed(4)),
+                beta: parseFloat(camera.beta.toFixed(4)),
+                radius: parseFloat(camera.radius.toFixed(4)),
+                target: {
+                    x: parseFloat(camera.target.x.toFixed(4)),
+                    y: parseFloat(camera.target.y.toFixed(4)),
+                    z: parseFloat(camera.target.z.toFixed(4))
+                }
+            };
+            navigator.clipboard.writeText(JSON.stringify(vals, null, 2)).then(() => {
+                pcamFeedback.style.display = "block";
+                setTimeout(() => { pcamFeedback.style.display = "none"; }, 2000);
+            });
+        });
+
+        scene.registerAfterRender(() => {
+            if (!pcamLabels.alpha) return;
+            pcamLabels.alpha.textContent = camera.alpha.toFixed(2);
+            pcamLabels.beta.textContent = camera.beta.toFixed(2);
+            pcamLabels.radius.textContent = camera.radius.toFixed(2);
+            pcamLabels.tx.textContent = camera.target.x.toFixed(2);
+            pcamLabels.ty.textContent = camera.target.y.toFixed(2);
+            pcamLabels.tz.textContent = camera.target.z.toFixed(2);
+        });
+
+        // ── Adjustment Controls ─────────────────────────────────
+        const adjPanel = document.getElementById("adjust-panel");
+        const btnToggle = document.getElementById("btn-toggle-adjust");
+        const btnCopy = document.getElementById("btn-copy-values");
+        const copyFeedback = document.getElementById("copy-feedback");
+
+        btnToggle.addEventListener("click", () => {
+            adjPanel.classList.remove("hidden");
+            btnToggle.classList.add("initially-hidden");
+        });
+
+        const btnClose = document.getElementById("btn-close-adjust");
+        btnClose.addEventListener("click", () => {
+            adjPanel.classList.add("hidden");
+            btnToggle.classList.remove("initially-hidden");
+        });
+
+        const sliders = {
+            scale: document.getElementById("adj-scale"),
+            px: document.getElementById("adj-px"),
+            py: document.getElementById("adj-py"),
+            pz: document.getElementById("adj-pz"),
+            rx: document.getElementById("adj-rx"),
+            ry: document.getElementById("adj-ry"),
+            rz: document.getElementById("adj-rz"),
+            foot: document.getElementById("adj-foot")
+        };
+        const valLabels = {
+            scale: document.getElementById("v-scale"),
+            px: document.getElementById("v-px"),
+            py: document.getElementById("v-py"),
+            pz: document.getElementById("v-pz"),
+            rx: document.getElementById("v-rx"),
+            ry: document.getElementById("v-ry"),
+            rz: document.getElementById("v-rz"),
+            foot: document.getElementById("v-foot")
+        };
+        const modelColorPicker = document.getElementById("adj-model-color");
+
+        function updateShoeFromSliders() {
+            const s = parseFloat(sliders.scale.value);
+            const px = parseFloat(sliders.px.value);
+            const py = parseFloat(sliders.py.value);
+            const pz = parseFloat(sliders.pz.value);
+            const rx = parseFloat(sliders.rx.value) * Math.PI / 180;
+            const ry = parseFloat(sliders.ry.value) * Math.PI / 180;
+            const rz = parseFloat(sliders.rz.value) * Math.PI / 180;
+
+            valLabels.scale.textContent = s.toFixed(2);
+            valLabels.px.textContent = px.toFixed(2);
+            valLabels.py.textContent = py.toFixed(2);
+            valLabels.pz.textContent = pz.toFixed(2);
+            valLabels.rx.textContent = sliders.rx.value;
+            valLabels.ry.textContent = sliders.ry.value;
+            valLabels.rz.textContent = sliders.rz.value;
+
+            // Show/hide character — toggle only, shoes stay visible
+            const showChar = parseInt(sliders.foot.value);
+            setCharacterVisibility(!!showChar);
+
+            if (leftAttachNode) {
+                leftAttachNode.scaling.set(s, s, s);
+                leftAttachNode.position.set(px, py, pz);
+                leftAttachNode.rotation.set(rx, ry, rz);
+            }
+            if (rightAttachNode) {
+                rightAttachNode.scaling.set(-s, s, s);
+                rightAttachNode.position.set(px, py, pz);
+                rightAttachNode.rotation.set(rx, ry, rz);
+            }
+        }
+
+        Object.values(sliders).forEach(sl => {
+            sl.addEventListener("input", updateShoeFromSliders);
+        });
+
+        // Model color picker
+        modelColorPicker.addEventListener("input", () => {
+            const hex = modelColorPicker.value.replace("#", "");
+            const r = parseInt(hex.substring(0,2), 16) / 255;
+            const g = parseInt(hex.substring(2,4), 16) / 255;
+            const b = parseInt(hex.substring(4,6), 16) / 255;
+            const color = new BABYLON.Color3(r, g, b);
+
+            characterMeshes.forEach(m => {
+                if (!m.material) return;
+                const mat = m.material;
+                const matType = mat.getClassName();
+
+                if (matType === "StandardMaterial") {
+                    mat.diffuseColor = color.clone();
+                } else if (matType === "PBRMaterial") {
+                    mat.albedoColor = color.clone();
+                }
+            });
+        });
+
+        btnCopy.addEventListener("click", () => {
+            const vals = {
+                scale: parseFloat(sliders.scale.value),
+                positionX: parseFloat(sliders.px.value),
+                positionY: parseFloat(sliders.py.value),
+                positionZ: parseFloat(sliders.pz.value),
+                rotationXdeg: parseFloat(sliders.rx.value),
+                rotationYdeg: parseFloat(sliders.ry.value),
+                rotationZdeg: parseFloat(sliders.rz.value),
+                footScale: parseFloat(sliders.foot.value),
+                modelColor: modelColorPicker.value
+            };
+            const text = JSON.stringify(vals, null, 2);
+            navigator.clipboard.writeText(text).then(() => {
+                copyFeedback.style.display = "block";
+                copyFeedback.textContent = "Copied to clipboard!";
+                setTimeout(() => { copyFeedback.style.display = "none"; }, 2000);
+            });
+            console.log("=== SHOE FIT VALUES ===", text);
+        });
+
+    })();
+    </script>
+</body>
+</html>
+</html>

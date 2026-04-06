@@ -1,0 +1,30 @@
+[
+    {
+        "id": "shoe",
+        "name": "Sneaker",
+        "folder": "shoe",
+        "file": "shoe.gltf",
+        "zones": ["laces", "mesh", "caps", "inner", "sole", "stripes", "band", "patch"],
+        "friendlyNames": {
+            "laces": "Laces",
+            "mesh": "Main Body",
+            "caps": "Toe Cap",
+            "inner": "Inner",
+            "sole": "Sole",
+            "stripes": "Stripes",
+            "band": "Band",
+            "patch": "Patch"
+        },
+        "defaultDesign": "classic-white"
+    },
+    {
+        "id": "truck",
+        "name": "Truck",
+        "folder": "truck",
+        "file": "truck.glb",
+        "zones": ["default material"],
+        "friendlyNames": {
+            "default material": "Body"
+        }
+    }
+]

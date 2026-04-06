@@ -1,0 +1,13 @@
+{
+    "name": "Midnight Blue",
+    "zones": {
+        "laces": { "color": "#c0c0ff" },
+        "mesh": { "color": "#0a1a3a" },
+        "caps": { "color": "#1a2a5a" },
+        "inner": { "color": "#050510" },
+        "sole": { "color": "#0d0d2b" },
+        "stripes": { "color": "#3344aa" },
+        "band": { "color": "#1a1a5a" },
+        "patch": { "color": "#2244cc" }
+    }
+}

@@ -1,0 +1,13 @@
+{
+    "name": "Fire Red",
+    "zones": {
+        "laces": { "color": "#1a1a1a" },
+        "mesh": { "color": "#cc0000" },
+        "caps": { "color": "#ff2222" },
+        "inner": { "color": "#2a0000" },
+        "sole": { "color": "#111111" },
+        "stripes": { "color": "#ff4444" },
+        "band": { "color": "#990000" },
+        "patch": { "color": "#ff0000" }
+    }
+}

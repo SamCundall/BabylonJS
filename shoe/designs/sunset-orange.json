@@ -1,0 +1,13 @@
+{
+    "name": "Sunset Orange",
+    "zones": {
+        "laces": { "color": "#ffdd44" },
+        "mesh": { "color": "#ff6600" },
+        "caps": { "color": "#ff8800" },
+        "inner": { "color": "#552200" },
+        "sole": { "color": "#cc4400" },
+        "stripes": { "color": "#ffaa00" },
+        "band": { "color": "#ee5500" },
+        "patch": { "color": "#ff9933" }
+    }
+}

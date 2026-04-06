@@ -1,0 +1,13 @@
+{
+    "name": "Neon Green",
+    "zones": {
+        "laces": { "color": "#00ff88" },
+        "mesh": { "color": "#111111" },
+        "caps": { "color": "#00ff44" },
+        "inner": { "color": "#0a0a0a" },
+        "sole": { "color": "#00cc33" },
+        "stripes": { "color": "#00ff66" },
+        "band": { "color": "#1a1a1a" },
+        "patch": { "color": "#00ee55" }
+    }
+}

@@ -1,0 +1,27 @@
+[
+{
+       "file": "basketball.glb",
+       "name": "Basketball",
+       "icon": "🏀"
+     },
+     {
+       "file": "golf.glb",
+       "name": "Golf Swing",
+       "icon": "⛳"
+     },
+      {
+        "file": "walk.glb",
+        "name": "Walking",
+        "icon": "🚶"
+      },
+        {
+          "file": "drink.glb",
+          "name": "Drinking",
+          "icon": "🥤"
+        },
+        {
+          "file": "baseball.glb",
+          "name": "Baseball",
+          "icon": "⚾"
+        }
+]

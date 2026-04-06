@@ -1,0 +1,843 @@
+/* ============================================================
+   Shoe Customizer – Babylon.js Application
+   ============================================================ */
+
+(function () {
+    "use strict";
+
+    // ── Constants ──────────────────────────────────────────────
+    const ZONE_NAMES = ["laces", "mesh", "caps", "inner", "sole", "stripes", "band", "patch"];
+    const FRIENDLY_NAMES = {
+        laces: "Laces", mesh: "Main Body", caps: "Toe Cap", inner: "Inner",
+        sole: "Sole", stripes: "Stripes", band: "Band", patch: "Patch"
+    };
+    const FLOAT_AMPLITUDE = 0.03;
+    const FLOAT_SPEED = 1.5;
+
+    // ── State ──────────────────────────────────────────────────
+    let currentMode = "orbit";          // orbit | rotate | scale | translate
+    let selectedZone = null;            // { name, material, mesh }
+    let hoveredZone = null;             // name of currently hovered zone
+    let shoeRoot = null;                // root TransformNode
+    let shoeZones = {};                 // name → { material, mesh, origColor, origTexture, subMeshIndex }
+    let scene, engine, camera;
+    let shadowDisc = null;
+    let isDragging = false;
+    let lastPointerX = 0, lastPointerY = 0;
+    let baseShoeY = 0;
+    let startTime = 0;
+    let presets = [];
+
+    // ── DOM refs ───────────────────────────────────────────────
+    const canvas = document.getElementById("renderCanvas");
+    const modeIcon = document.getElementById("mode-icon");
+    const modeLabel = document.getElementById("mode-label");
+    const pickerPopup = document.getElementById("color-picker-popup");
+    const pickerZoneName = document.getElementById("picker-zone-name");
+    const pickerColor = document.getElementById("picker-color");
+    const pickerTextureFile = document.getElementById("picker-texture-file");
+    const pickerTextureName = document.getElementById("picker-texture-name");
+    const pickerWrapFile = document.getElementById("picker-wrap-file");
+    const pickerReset = document.getElementById("picker-reset");
+    const pickerClose = document.getElementById("picker-close");
+    const btnSave = document.getElementById("btn-save-design");
+    const btnRefresh = document.getElementById("btn-refresh");
+    const btnPreview = document.getElementById("btn-preview");
+    const presetGrid = document.getElementById("preset-grid");
+    const loadingOverlay = document.getElementById("loading-overlay");
+
+    // ================================================================
+    //  1. INIT BABYLON ENGINE & SCENE
+    // ================================================================
+
+    engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+    scene = new BABYLON.Scene(engine);
+    scene.clearColor = new BABYLON.Color4(0.08, 0.08, 0.14, 1);
+    scene.ambientColor = new BABYLON.Color3(0.15, 0.15, 0.2);
+
+    // Camera
+    const DEFAULT_CAMERA = {
+        alpha: -Math.PI / 2,
+        beta: Math.PI / 2.5,
+        radius: 3,
+        target: BABYLON.Vector3.Zero()
+    };
+    camera = new BABYLON.ArcRotateCamera("cam", DEFAULT_CAMERA.alpha, DEFAULT_CAMERA.beta, DEFAULT_CAMERA.radius, DEFAULT_CAMERA.target.clone(), scene);
+    camera.lowerRadiusLimit = 1.2;
+    camera.upperRadiusLimit = 8;
+    camera.wheelDeltaPercentage = 0.02;
+    camera.attachControl(canvas, true);
+    camera.minZ = 0.01;
+
+    // Lights
+    const hemiLight = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0, 1, 0), scene);
+    hemiLight.intensity = 0.7;
+    hemiLight.groundColor = new BABYLON.Color3(0.1, 0.1, 0.15);
+
+    const dirLight = new BABYLON.DirectionalLight("dir", new BABYLON.Vector3(-0.5, -1, 0.5), scene);
+    dirLight.intensity = 0.9;
+    dirLight.position = new BABYLON.Vector3(3, 6, -3);
+
+    const backLight = new BABYLON.DirectionalLight("back", new BABYLON.Vector3(0.5, -0.5, -0.5), scene);
+    backLight.intensity = 0.3;
+
+    // Highlight colors
+    const HIGHLIGHT_EMISSIVE = new BABYLON.Color3(0.45, 0.12, 0.18);
+    const HOVER_EMISSIVE = new BABYLON.Color3(0.15, 0.05, 0.08);
+
+    // ================================================================
+    //  2. LOAD SHOE MODEL
+    // ================================================================
+
+    BABYLON.SceneLoader.ImportMesh("", "./", "shoe.gltf", scene,
+        function onSuccess(meshes) {
+            // Create a parent transform node
+            shoeRoot = new BABYLON.TransformNode("shoeRoot", scene);
+            baseShoeY = 0;
+
+            meshes.forEach(m => {
+                if (m.name === "__root__") {
+                    m.parent = shoeRoot;
+                }
+            });
+
+            // Debug: log all meshes and their materials
+            console.log("=== GLTF Loaded Meshes ===");
+            meshes.forEach((m, i) => {
+                const matInfo = m.material ? m.material.name : "no material";
+                const subCount = m.subMeshes ? m.subMeshes.length : 0;
+                console.log(`  [${i}] "${m.name}" | mat: "${matInfo}" | subMeshes: ${subCount} | type: ${m.getClassName()}`);
+                if (m.subMeshes && m.subMeshes.length > 1) {
+                    m.subMeshes.forEach((sm, si) => {
+                        const smMat = sm.getMaterial();
+                        console.log(`    sub[${si}] mat: "${smMat ? smMat.name : '?'}" | type: ${smMat ? smMat.getClassName() : '?'}`);
+                    });
+                }
+            });
+
+            // Strategy: find ALL materials that match zone names, regardless of mesh structure
+            // Build a map of material name → material object
+            const allMaterials = {};
+            scene.materials.forEach(mat => {
+                allMaterials[mat.name.toLowerCase()] = mat;
+            });
+            console.log("=== Scene Materials ===", Object.keys(allMaterials).join(", "));
+
+            // For each zone name, find the matching material and the mesh/submesh it belongs to
+            ZONE_NAMES.forEach(zoneName => {
+                const mat = allMaterials[zoneName];
+                if (!mat) {
+                    console.warn("No material found for zone:", zoneName);
+                    return;
+                }
+
+                // Find which mesh uses this material
+                let targetMesh = null;
+                let subMeshIndex = -1;
+
+                for (const m of meshes) {
+                    if (!m.subMeshes) continue;
+                    for (let si = 0; si < m.subMeshes.length; si++) {
+                        const smMat = m.subMeshes[si].getMaterial();
+                        if (smMat && smMat.name.toLowerCase() === zoneName) {
+                            targetMesh = m;
+                            subMeshIndex = si;
+                            break;
+                        }
+                    }
+                    if (targetMesh) break;
+
+                    // Also check direct material match
+                    if (m.material && m.material.name.toLowerCase() === zoneName) {
+                        targetMesh = m;
+                        subMeshIndex = 0;
+                        break;
+                    }
+                }
+
+                if (!targetMesh) {
+                    console.warn("No mesh found for zone:", zoneName);
+                    return;
+                }
+
+                targetMesh.isPickable = true;
+
+                shoeZones[zoneName] = {
+                    material: mat,
+                    mesh: targetMesh,
+                    subMeshIndex: subMeshIndex,
+                    origColor: mat.albedoColor ? mat.albedoColor.clone() : new BABYLON.Color3(0.8, 0.8, 0.8),
+                    origTexture: mat.albedoTexture || null,
+                    origEmissive: mat.emissiveColor ? mat.emissiveColor.clone() : BABYLON.Color3.Black()
+                };
+            });
+
+            console.log("=== Shoe Zones Mapped ===", Object.keys(shoeZones).join(", "));
+            console.log("Zone count:", Object.keys(shoeZones).length);
+
+            // Center the shoe
+            const bounds = getCompoundBounds(meshes);
+            if (bounds) {
+                const center = bounds.center;
+                shoeRoot.position.x = -center.x;
+                shoeRoot.position.z = -center.z;
+                baseShoeY = -center.y;
+                shoeRoot.position.y = baseShoeY;
+                camera.target = BABYLON.Vector3.Zero();
+            }
+
+            createShadowDisc();
+            hideLoading();
+            startTime = performance.now() / 1000;
+        },
+        null,
+        function onError(scene, msg, ex) {
+            document.getElementById("loading-text").textContent =
+                "Failed to load shoe.gltf. Check that shoe.bin, normal.jpg, and occlusionRougnessMetalness.jpg are in the same folder.";
+            console.error("GLTF load error:", msg, ex);
+        }
+    );
+
+    function getCompoundBounds(meshes) {
+        let min = null, max = null;
+        meshes.forEach(m => {
+            if (!m.getBoundingInfo) return;
+            const bi = m.getBoundingInfo();
+            const bmin = bi.boundingBox.minimumWorld;
+            const bmax = bi.boundingBox.maximumWorld;
+            if (!min) { min = bmin.clone(); max = bmax.clone(); }
+            else {
+                min = BABYLON.Vector3.Minimize(min, bmin);
+                max = BABYLON.Vector3.Maximize(max, bmax);
+            }
+        });
+        if (!min) return null;
+        return { min, max, center: BABYLON.Vector3.Center(min, max) };
+    }
+
+    // ================================================================
+    //  3. SHADOW & FLOATING ANIMATION
+    // ================================================================
+
+    function createShadowDisc() {
+        shadowDisc = BABYLON.MeshBuilder.CreateDisc("shadow", { radius: 0.6, tessellation: 64 }, scene);
+        shadowDisc.rotation.x = Math.PI / 2;
+        shadowDisc.position.y = -0.5;
+        shadowDisc.isPickable = false;
+
+        const shadowMat = new BABYLON.StandardMaterial("shadowMat", scene);
+        shadowMat.diffuseColor = BABYLON.Color3.Black();
+        shadowMat.specularColor = BABYLON.Color3.Black();
+        shadowMat.alpha = 0.25;
+        shadowMat.backFaceCulling = false;
+
+        // Create a dynamic texture for a soft radial gradient shadow
+        const dynTex = new BABYLON.DynamicTexture("shadowTex", 256, scene, true);
+        const ctx = dynTex.getContext();
+        const cx = 128, cy = 128, r = 120;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        grad.addColorStop(0, "rgba(0,0,0,0.7)");
+        grad.addColorStop(0.5, "rgba(0,0,0,0.3)");
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 256, 256);
+        dynTex.update();
+
+        shadowMat.diffuseTexture = dynTex;
+        shadowMat.opacityTexture = dynTex;
+        shadowMat.useAlphaFromDiffuseTexture = true;
+        shadowDisc.material = shadowMat;
+    }
+
+    // Render loop with floating animation
+    scene.registerBeforeRender(function () {
+        if (!shoeRoot) return;
+        const t = performance.now() / 1000 - startTime;
+        const floatOffset = Math.sin(t * FLOAT_SPEED) * FLOAT_AMPLITUDE;
+
+        if (currentMode !== "translate") {
+            shoeRoot.position.y = baseShoeY + floatOffset;
+        }
+
+        // Animate shadow opacity/scale inversely
+        if (shadowDisc) {
+            const shadowScale = 1 - floatOffset * 3;
+            shadowDisc.scaling.x = shadowScale;
+            shadowDisc.scaling.z = shadowScale;
+            shadowDisc.material.alpha = 0.25 - floatOffset * 2;
+        }
+    });
+
+    // ================================================================
+    //  4. TRANSFORM MODE SYSTEM
+    // ================================================================
+
+    const MODE_CONFIG = {
+        orbit:     { icon: "👁️", label: "View" },
+        rotate:    { icon: "🔄", label: "Rotate" },
+        scale:     { icon: "📏", label: "Scale" },
+        translate: { icon: "✋", label: "Move" }
+    };
+
+    function setMode(mode) {
+        currentMode = mode;
+        const cfg = MODE_CONFIG[mode];
+        modeIcon.textContent = cfg.icon;
+        modeLabel.textContent = cfg.label;
+
+        // Enable/disable camera based on mode
+        if (mode === "orbit") {
+            camera.attachControl(canvas, true);
+        } else {
+            camera.detachControl();
+        }
+
+        // Visual feedback on mode indicator
+        const indicator = document.getElementById("mode-indicator");
+        indicator.style.background = mode === "orbit"
+            ? "rgba(15, 52, 96, 0.9)"
+            : "rgba(233, 69, 96, 0.9)";
+    }
+
+    // Keyboard shortcuts
+    window.addEventListener("keydown", function (e) {
+        const key = e.key.toLowerCase();
+        if (key === "r") {
+            setMode(currentMode === "rotate" ? "orbit" : "rotate");
+        } else if (key === "s") {
+            setMode(currentMode === "scale" ? "orbit" : "scale");
+        } else if (key === "t") {
+            setMode(currentMode === "translate" ? "orbit" : "translate");
+        } else if (key === "escape") {
+            setMode("orbit");
+            deselectZone();
+        }
+    });
+
+    // ── Pointer drag for transform modes ───────────────────────
+    canvas.addEventListener("pointerdown", function (e) {
+        if (currentMode !== "orbit") {
+            isDragging = true;
+            lastPointerX = e.clientX;
+            lastPointerY = e.clientY;
+        }
+    });
+
+    window.addEventListener("pointermove", function (e) {
+        if (!isDragging || !shoeRoot) return;
+        const dx = e.clientX - lastPointerX;
+        const dy = e.clientY - lastPointerY;
+        lastPointerX = e.clientX;
+        lastPointerY = e.clientY;
+
+        switch (currentMode) {
+            case "rotate":
+                shoeRoot.rotation.y += dx * 0.01;
+                shoeRoot.rotation.x += dy * 0.01;
+                break;
+            case "scale": {
+                const scaleDelta = 1 - dy * 0.005;
+                const newScale = Math.max(0.3, Math.min(5, shoeRoot.scaling.x * scaleDelta));
+                shoeRoot.scaling.setAll(newScale);
+                break;
+            }
+            case "translate":
+                shoeRoot.position.x += dx * 0.005;
+                shoeRoot.position.z -= dy * 0.005;
+                break;
+        }
+    });
+
+    window.addEventListener("pointerup", function () {
+        isDragging = false;
+    });
+
+    // ================================================================
+    //  5. ZONE PICKING, HOVER GLOW & SELECTION
+    // ================================================================
+
+    // Helper: find zone name from a pick result
+    function getZoneFromPick(pickResult) {
+        if (!pickResult || !pickResult.hit) return null;
+        const hitMesh = pickResult.pickedMesh;
+        const hitSubMeshId = pickResult.subMeshId;
+
+        // Method A: Get the sub-mesh material directly (most reliable for multi-material meshes)
+        if (hitMesh && hitMesh.subMeshes && hitSubMeshId !== undefined) {
+            const sm = hitMesh.subMeshes[hitSubMeshId];
+            if (sm) {
+                const smMat = sm.getMaterial();
+                if (smMat) {
+                    const n = smMat.name.toLowerCase();
+                    if (shoeZones[n]) return n;
+                }
+            }
+        }
+
+        // Method B: Check by mesh's own material name
+        if (hitMesh && hitMesh.material) {
+            const matName = hitMesh.material.name.toLowerCase();
+            if (shoeZones[matName]) return matName;
+        }
+
+        // Method C: Brute force — check if any zone's mesh matches the hit mesh
+        for (const [name, zone] of Object.entries(shoeZones)) {
+            if (zone.mesh === hitMesh) {
+                // For single-submesh meshes, this is the zone
+                if (!hitMesh.subMeshes || hitMesh.subMeshes.length <= 1) return name;
+                // For multi-submesh, check index
+                if (zone.subMeshIndex === hitSubMeshId) return name;
+            }
+        }
+
+        return null;
+    }
+
+    // ── Hover glow effect ──────────────────────────────────────
+    canvas.addEventListener("pointermove", function (e) {
+        // Skip hover detection while dragging in transform modes
+        if (isDragging) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const pickResult = scene.pick(e.clientX - rect.left, e.clientY - rect.top);
+        const zoneName = getZoneFromPick(pickResult);
+
+        // Remove previous hover glow
+        if (hoveredZone && hoveredZone !== zoneName) {
+            const prevZone = shoeZones[hoveredZone];
+            if (prevZone && prevZone.material) {
+                // Only restore if not the selected zone
+                if (!selectedZone || selectedZone.name !== hoveredZone) {
+                    prevZone.material.emissiveColor = prevZone.origEmissive ? prevZone.origEmissive.clone() : BABYLON.Color3.Black();
+                }
+            }
+            hoveredZone = null;
+            canvas.style.cursor = "default";
+        }
+
+        // Apply hover glow to new zone
+        if (zoneName && zoneName !== hoveredZone) {
+            // Don't override the selected zone's stronger highlight
+            if (!selectedZone || selectedZone.name !== zoneName) {
+                const zone = shoeZones[zoneName];
+                if (zone && zone.material) {
+                    zone.material.emissiveColor = HOVER_EMISSIVE;
+                }
+            }
+            hoveredZone = zoneName;
+            canvas.style.cursor = "pointer";
+        }
+
+        if (!zoneName) {
+            canvas.style.cursor = currentMode !== "orbit" ? "grab" : "default";
+        }
+    });
+
+    // ── Click to select zone ───────────────────────────────────
+    canvas.addEventListener("pointerdown", function (e) {
+        if (e.button !== 0) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const pickResult = scene.pick(e.clientX - rect.left, e.clientY - rect.top);
+        const zoneName = getZoneFromPick(pickResult);
+
+        if (zoneName) {
+            selectZone(zoneName, e.clientX, e.clientY);
+            return;
+        }
+
+        // Clicked empty space — deselect only if in orbit mode
+        if (currentMode === "orbit") {
+            deselectZone();
+        }
+    });
+
+    function selectZone(name, screenX, screenY) {
+        deselectZone();
+        const zone = shoeZones[name];
+        if (!zone) return;
+
+        selectedZone = { name, material: zone.material, mesh: zone.mesh };
+
+        // Highlight: boost emissive on the selected zone's material
+        if (zone.material) {
+            zone.material.emissiveColor = HIGHLIGHT_EMISSIVE;
+        }
+
+        showPicker(name, screenX, screenY);
+    }
+
+    function deselectZone() {
+        if (selectedZone) {
+            const zone = shoeZones[selectedZone.name];
+            if (zone && zone.material) {
+                zone.material.emissiveColor = zone.origEmissive ? zone.origEmissive.clone() : BABYLON.Color3.Black();
+            }
+            selectedZone = null;
+        }
+        hidePicker();
+    }
+
+    // ================================================================
+    //  6. FLOATING COLOR PICKER
+    // ================================================================
+
+    function showPicker(zoneName, screenX, screenY) {
+        pickerZoneName.textContent = FRIENDLY_NAMES[zoneName] || zoneName;
+        pickerTextureName.textContent = "";
+
+        // Set current color
+        const zone = shoeZones[zoneName];
+        if (zone && zone.material.albedoColor) {
+            pickerColor.value = colorToHex(zone.material.albedoColor);
+        }
+
+        // Position the popup near the click, but keep in viewport
+        const rect = canvas.getBoundingClientRect();
+        let left = screenX + 20;
+        let top = screenY - 60;
+
+        // Keep within window bounds
+        if (left + 260 > window.innerWidth) left = screenX - 270;
+        if (top + 300 > window.innerHeight) top = window.innerHeight - 310;
+        if (top < 10) top = 10;
+        if (left < 270) left = 270; // Don't overlap sidebar
+
+        pickerPopup.style.left = left + "px";
+        pickerPopup.style.top = top + "px";
+        pickerPopup.classList.remove("hidden");
+    }
+
+    function hidePicker() {
+        pickerPopup.classList.add("hidden");
+    }
+
+    // Color change
+    pickerColor.addEventListener("input", function () {
+        if (!selectedZone) return;
+        const zone = shoeZones[selectedZone.name];
+        if (!zone) return;
+        const c = hexToColor3(pickerColor.value);
+        zone.material.albedoColor = c;
+        if (zone.material.albedoTexture && zone.material._customTexture) {
+            zone.material.albedoTexture = null;
+            zone.material._customTexture = false;
+        }
+    });
+
+    // Texture upload
+    pickerTextureFile.addEventListener("change", function () {
+        if (!selectedZone || !pickerTextureFile.files.length) return;
+        const file = pickerTextureFile.files[0];
+        pickerTextureName.textContent = file.name;
+        applyTextureToZone(selectedZone.name, file);
+        pickerTextureFile.value = "";
+    });
+
+    // Wrap image to all zones
+    pickerWrapFile.addEventListener("change", function () {
+        if (!pickerWrapFile.files.length) return;
+        const file = pickerWrapFile.files[0];
+        ZONE_NAMES.forEach(name => {
+            if (shoeZones[name]) {
+                applyTextureToZone(name, file);
+            }
+        });
+        pickerWrapFile.value = "";
+    });
+
+    // Reset zone
+    pickerReset.addEventListener("click", function () {
+        if (!selectedZone) return;
+        const zone = shoeZones[selectedZone.name];
+        if (!zone) return;
+        zone.material.albedoColor = zone.origColor.clone();
+        zone.material.albedoTexture = zone.origTexture;
+        zone.material._customTexture = false;
+        zone.material.emissiveColor = zone.origEmissive ? zone.origEmissive.clone() : BABYLON.Color3.Black();
+        pickerColor.value = colorToHex(zone.origColor);
+        pickerTextureName.textContent = "";
+    });
+
+    // Close picker
+    pickerClose.addEventListener("click", deselectZone);
+
+    function applyTextureToZone(zoneName, file) {
+        const zone = shoeZones[zoneName];
+        if (!zone) return;
+        const url = URL.createObjectURL(file);
+        const tex = new BABYLON.Texture(url, scene, false, true, BABYLON.Texture.BILINEAR_SAMPLINGMODE, function () {
+            // Texture loaded
+        });
+        zone.material.albedoTexture = tex;
+        zone.material.albedoColor = BABYLON.Color3.White();
+        zone.material._customTexture = true;
+    }
+
+    // ================================================================
+    //  7. DESIGN PRESETS
+    // ================================================================
+
+    async function loadPresets() {
+        try {
+            const resp = await fetch("designs/index.json?_=" + Date.now());
+            const manifest = await resp.json();
+            presets = [];
+
+            for (const entry of manifest) {
+                try {
+                    const pr = await fetch("designs/" + entry.file + "?_=" + Date.now());
+                    const data = await pr.json();
+                    data._file = entry.file;
+                    data._thumb = entry.thumb || null;
+                    presets.push(data);
+                } catch (e) {
+                    console.warn("Could not load preset:", entry.file, e);
+                }
+            }
+
+            renderPresets();
+        } catch (e) {
+            console.warn("No designs/index.json found or fetch failed.", e);
+            renderPresets();
+        }
+    }
+
+    function renderPresets() {
+        presetGrid.innerHTML = "";
+
+        presets.forEach((preset, idx) => {
+            const card = document.createElement("div");
+            card.className = "preset-card";
+            card.title = preset.name || "Preset " + (idx + 1);
+
+            // Thumbnail: either image or color swatch grid
+            const thumb = document.createElement("div");
+            thumb.className = "preset-card-thumb";
+
+            if (preset._thumb) {
+                const img = document.createElement("img");
+                img.src = "designs/" + preset._thumb;
+                img.alt = preset.name;
+                img.loading = "lazy";
+                thumb.appendChild(img);
+            } else {
+                // Generate a swatch grid from zone colors
+                const swatchGrid = document.createElement("div");
+                swatchGrid.className = "preset-swatches";
+                ZONE_NAMES.forEach(z => {
+                    const swatch = document.createElement("div");
+                    swatch.className = "preset-swatch";
+                    const zoneData = preset.zones && preset.zones[z];
+                    swatch.style.background = (zoneData && zoneData.color) || "#555";
+                    swatchGrid.appendChild(swatch);
+                });
+                thumb.appendChild(swatchGrid);
+            }
+            card.appendChild(thumb);
+
+            const nameEl = document.createElement("div");
+            nameEl.className = "preset-card-name";
+            nameEl.textContent = preset.name || "Preset " + (idx + 1);
+            card.appendChild(nameEl);
+
+            card.addEventListener("click", () => applyPreset(preset));
+            presetGrid.appendChild(card);
+        });
+    }
+
+    function applyPreset(preset) {
+        if (!preset.zones) return;
+        deselectZone();
+
+        Object.keys(preset.zones).forEach(zoneName => {
+            const zone = shoeZones[zoneName];
+            if (!zone) return;
+            const cfg = preset.zones[zoneName];
+
+            if (cfg.color) {
+                zone.material.albedoColor = hexToColor3(cfg.color);
+                if (!cfg.texture) {
+                    zone.material.albedoTexture = null;
+                    zone.material._customTexture = false;
+                }
+            }
+
+            if (cfg.texture) {
+                const tex = new BABYLON.Texture(cfg.texture, scene);
+                zone.material.albedoTexture = tex;
+                zone.material.albedoColor = BABYLON.Color3.White();
+                zone.material._customTexture = true;
+            }
+        });
+    }
+
+    // ── Save current design ────────────────────────────────────
+    btnSave.addEventListener("click", function () {
+        const design = {
+            name: "Custom " + new Date().toLocaleTimeString(),
+            zones: {}
+        };
+
+        ZONE_NAMES.forEach(name => {
+            const zone = shoeZones[name];
+            if (!zone) return;
+            design.zones[name] = {
+                color: colorToHex(zone.material.albedoColor || zone.origColor)
+            };
+        });
+
+        // Download design JSON
+        const blob = new Blob([JSON.stringify(design, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "design-" + Date.now() + ".json";
+        a.click();
+        URL.revokeObjectURL(url);
+
+        // Also capture a screenshot as thumbnail
+        BABYLON.Tools.CreateScreenshot(engine, camera, { width: 400, height: 400 }, function (dataUrl) {
+            const a2 = document.createElement("a");
+            a2.href = dataUrl;
+            a2.download = "design-" + Date.now() + "-thumb.png";
+            a2.click();
+        });
+    });
+
+    // Refresh presets
+    btnRefresh.addEventListener("click", loadPresets);
+
+    // Preview on character — save design to localStorage and open preview page
+    if (btnPreview) {
+        btnPreview.addEventListener("click", function () {
+            const design = {
+                name: "Current Design",
+                zones: {}
+            };
+            ZONE_NAMES.forEach(name => {
+                const zone = shoeZones[name];
+                if (!zone) return;
+                design.zones[name] = {
+                    color: colorToHex(zone.material.albedoColor || zone.origColor)
+                };
+            });
+            localStorage.setItem("shoeDesign", JSON.stringify(design));
+            window.open("preview.html", "shoePreview");
+        });
+    }
+
+    // ================================================================
+    //  8. UTILITIES
+    // ================================================================
+
+    function colorToHex(color3) {
+        if (!color3) return "#808080";
+        const r = Math.round(Math.min(1, Math.max(0, color3.r)) * 255);
+        const g = Math.round(Math.min(1, Math.max(0, color3.g)) * 255);
+        const b = Math.round(Math.min(1, Math.max(0, color3.b)) * 255);
+        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    function hexToColor3(hex) {
+        hex = hex.replace("#", "");
+        const r = parseInt(hex.substring(0, 2), 16) / 255;
+        const g = parseInt(hex.substring(2, 4), 16) / 255;
+        const b = parseInt(hex.substring(4, 6), 16) / 255;
+        return new BABYLON.Color3(r, g, b);
+    }
+
+    function hideLoading() {
+        loadingOverlay.classList.add("hidden");
+        setTimeout(() => { loadingOverlay.style.display = "none"; }, 600);
+    }
+
+    // ================================================================
+    //  9. ENGINE RENDER LOOP & RESIZE
+    // ================================================================
+
+    engine.runRenderLoop(function () {
+        scene.render();
+    });
+
+    window.addEventListener("resize", function () {
+        engine.resize();
+    });
+
+    // ================================================================
+    //  10. CAMERA POSITION PANEL
+    // ================================================================
+
+    const cameraPanel = document.getElementById("camera-panel");
+    const btnToggleCamera = document.getElementById("btn-toggle-camera");
+    const btnCloseCamera = document.getElementById("btn-close-camera");
+    const btnCopyCamera = document.getElementById("btn-copy-camera");
+    const btnResetCamera = document.getElementById("btn-reset-camera");
+    const cameraCopyFeedback = document.getElementById("camera-copy-feedback");
+
+    const camLabels = {
+        alpha:  document.getElementById("cam-alpha"),
+        beta:   document.getElementById("cam-beta"),
+        radius: document.getElementById("cam-radius"),
+        tx:     document.getElementById("cam-tx"),
+        ty:     document.getElementById("cam-ty"),
+        tz:     document.getElementById("cam-tz")
+    };
+
+    if (btnToggleCamera) {
+        btnToggleCamera.addEventListener("click", function () {
+            cameraPanel.classList.remove("hidden");
+            btnToggleCamera.style.display = "none";
+        });
+    }
+
+    if (btnCloseCamera) {
+        btnCloseCamera.addEventListener("click", function () {
+            cameraPanel.classList.add("hidden");
+            btnToggleCamera.style.display = "";
+        });
+    }
+
+    if (btnResetCamera) {
+        btnResetCamera.addEventListener("click", function () {
+            camera.alpha = DEFAULT_CAMERA.alpha;
+            camera.beta = DEFAULT_CAMERA.beta;
+            camera.radius = DEFAULT_CAMERA.radius;
+            camera.target = DEFAULT_CAMERA.target.clone();
+        });
+    }
+
+    if (btnCopyCamera) {
+        btnCopyCamera.addEventListener("click", function () {
+            var vals = {
+                alpha: parseFloat(camera.alpha.toFixed(4)),
+                beta: parseFloat(camera.beta.toFixed(4)),
+                radius: parseFloat(camera.radius.toFixed(4)),
+                target: {
+                    x: parseFloat(camera.target.x.toFixed(4)),
+                    y: parseFloat(camera.target.y.toFixed(4)),
+                    z: parseFloat(camera.target.z.toFixed(4))
+                }
+            };
+            navigator.clipboard.writeText(JSON.stringify(vals, null, 2)).then(function () {
+                cameraCopyFeedback.style.display = "block";
+                setTimeout(function () { cameraCopyFeedback.style.display = "none"; }, 2000);
+            });
+        });
+    }
+
+    // Update camera value display every frame
+    scene.registerAfterRender(function () {
+        if (!camLabels.alpha) return;
+        camLabels.alpha.textContent = camera.alpha.toFixed(2);
+        camLabels.beta.textContent = camera.beta.toFixed(2);
+        camLabels.radius.textContent = camera.radius.toFixed(2);
+        camLabels.tx.textContent = camera.target.x.toFixed(2);
+        camLabels.ty.textContent = camera.target.y.toFixed(2);
+        camLabels.tz.textContent = camera.target.z.toFixed(2);
+    });
+
+    // Load presets on start
+    loadPresets();
+
+})();

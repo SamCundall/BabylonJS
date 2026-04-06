@@ -1,0 +1,13 @@
+{
+    "name": "Classic White",
+    "zones": {
+        "laces": { "color": "#ffffff" },
+        "mesh": { "color": "#f5f5f5" },
+        "caps": { "color": "#e0e0e0" },
+        "inner": { "color": "#d4d4d4" },
+        "sole": { "color": "#ffffff" },
+        "stripes": { "color": "#cccccc" },
+        "band": { "color": "#e8e8e8" },
+        "patch": { "color": "#f0f0f0" }
+    }
+}

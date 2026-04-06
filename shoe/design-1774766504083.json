@@ -1,0 +1,29 @@
+{
+  "name": "Custom 11:41:44 PM",
+  "zones": {
+    "laces": {
+      "color": "#00b3ff"
+    },
+    "mesh": {
+      "color": "#bf365f"
+    },
+    "caps": {
+      "color": "#ffffff"
+    },
+    "inner": {
+      "color": "#d86985"
+    },
+    "sole": {
+      "color": "#fac3fe"
+    },
+    "stripes": {
+      "color": "#ffffff"
+    },
+    "band": {
+      "color": "#aa2c89"
+    },
+    "patch": {
+      "color": "#f7b8ff"
+    }
+  }
+}

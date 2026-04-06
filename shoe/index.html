@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shoe Customizer</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Babylon.js 6.x -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+</head>
+<body>
+    <!-- Left Sidebar: Preset Designs -->
+    <div id="sidebar">
+        <!-- Model Selector -->
+        <div id="model-selector">
+            <label for="model-select">Model</label>
+            <select id="model-select"></select>
+        </div>
+
+        <div id="sidebar-header">
+            <h2>Designs</h2>
+            <button id="btn-save-design" title="Save current design">💾 Save</button>
+        </div>
+        <div id="sidebar-hint">Click a design to apply it</div>
+        <div id="preset-grid"></div>
+
+        <!-- Context Floor Selector (visible in preview mode) -->
+        <div id="floor-selector" class="hidden">
+            <label for="floor-type">Context Floor</label>
+            <select id="floor-type">
+                <option value="none">None</option>
+                <option value="basketball">🏀 Basketball Court</option>
+                <option value="tennis">🎾 Tennis Court</option>
+                <option value="street">🛹 Street</option>
+                <option value="grass">⚽ Grass</option>
+                <option value="track">🏃 Running Track</option>
+            </select>
+        </div>
+
+        <div id="sidebar-footer">
+            <button id="btn-preview" title="Toggle character preview">🚶 Preview</button>
+            <button id="btn-uv-grid" title="Show UV grid on shoe">🔲 UV Grid</button>
+            <button id="btn-export-uv" title="Export UV layout with zone outlines">📐 Export UV Map</button>
+            <button id="btn-refresh" title="Refresh designs from folder">🔄 Refresh</button>
+        </div>
+    </div>
+
+    <!-- Main Canvas Area -->
+    <div id="canvas-container">
+        <canvas id="renderCanvas"></canvas>
+
+        <!-- Mode Indicator -->
+        <div id="mode-indicator">
+            <span id="mode-icon">👁️</span>
+            <span id="mode-label">View</span>
+        </div>
+
+        <!-- Camera Panel Toggle -->
+        <button id="btn-toggle-camera" title="Camera position controls">🎥 Camera</button>
+
+        <!-- Camera Position Panel -->
+        <div id="camera-panel" class="hidden">
+            <div id="camera-panel-header">
+                <span>🎥 Camera Position</span>
+                <span>
+                    <button id="btn-copy-camera">📋 Copy</button>
+                    <button id="btn-reset-camera">🔄 Reset</button>
+                    <button id="btn-close-camera">✕</button>
+                </span>
+            </div>
+            <div class="cam-row"><span>Alpha</span><span class="cam-val" id="cam-alpha">-1.57</span></div>
+            <div class="cam-row"><span>Beta</span><span class="cam-val" id="cam-beta">1.26</span></div>
+            <div class="cam-row"><span>Radius</span><span class="cam-val" id="cam-radius">3.00</span></div>
+            <div class="cam-row"><span>Target X</span><span class="cam-val" id="cam-tx">0.00</span></div>
+            <div class="cam-row"><span>Target Y</span><span class="cam-val" id="cam-ty">0.00</span></div>
+            <div class="cam-row"><span>Target Z</span><span class="cam-val" id="cam-tz">0.00</span></div>
+            <div id="camera-copy-feedback">Copied!</div>
+        </div>
+
+        <!-- Keyboard Hints (shoe mode) -->
+        <div id="keyboard-hints">
+            <span><kbd>R</kbd> Rotate</span>
+            <span><kbd>S</kbd> Scale</span>
+            <span><kbd>T</kbd> Move</span>
+            <span><kbd>Click</kbd> Select Zone</span>
+        </div>
+
+        <!-- Animation Bar (preview mode) -->
+        <div id="anim-bar" class="hidden">
+            <button class="anim-btn active" data-anim="idle">🧍 Idle</button>
+            <button class="anim-btn" data-anim="walk">🚶 Walk</button>
+            <button class="anim-btn" data-anim="run">🏃 Run</button>
+            <button class="anim-btn" data-anim="left">⬅ Strafe L</button>
+            <button class="anim-btn" data-anim="right">➡ Strafe R</button>
+            <button class="anim-btn" data-anim="jump">🦘 Jump</button>
+            <button class="anim-btn char-toggle" id="btn-char-toggle">👤 Character</button>
+            <button class="anim-btn char-toggle" id="btn-hat-toggle">🧢 Hat</button>
+            <button class="anim-btn char-toggle hidden" id="btn-hat-closeup">🔍 Close-up</button>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay">
+            <div id="loading-spinner"></div>
+            <div id="loading-text">Loading shoe model...</div>
+        </div>
+    </div>
+
+    <!-- Floating Color Picker Popup -->
+    <div id="color-picker-popup" class="hidden">
+        <div id="picker-header">
+            <span id="picker-zone-name">Zone</span>
+            <button id="picker-close" title="Close">✕</button>
+        </div>
+        <div id="picker-body">
+            <div class="picker-section">
+                <label>Color</label>
+                <input type="color" id="picker-color" value="#ffffff" title="Pick a color">
+            </div>
+            <div class="picker-section">
+                <label>Texture</label>
+                <label class="file-btn" for="picker-texture-file">📁 Upload Texture</label>
+                <input type="file" id="picker-texture-file" accept="image/*" class="hidden-file-input">
+                <span id="picker-texture-name" class="file-name"></span>
+            </div>
+            <div class="picker-section">
+                <label>Wrap Image (All Zones)</label>
+                <label class="file-btn" for="picker-wrap-file">🖼️ Wrap Image</label>
+                <input type="file" id="picker-wrap-file" accept="image/*" class="hidden-file-input">
+            </div>
+            <div class="picker-section">
+                <button id="picker-reset" class="reset-btn">↩ Reset Zone</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
